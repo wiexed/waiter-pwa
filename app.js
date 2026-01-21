@@ -6,6 +6,7 @@ const LS_MENU = "waiter_menu_v1";
 const LS_ORDERS = "waiter_orders_v1";
 const LS_TABLE = "waiter_active_table_v1";
 const LS_CAT = "waiter_active_cat_v1";
+const LS_HISTORY = "waiter_history_v1";
 
 const DEFAULT_MENU = [
   { id: uuid(), name: "Цезарь", category: "Салаты", price: 350 },
@@ -40,6 +41,59 @@ function loadMenu() {
 }
 
 }
+function loadHistory() {
+  const raw = localStorage.getItem(LS_HISTORY);
+  if (!raw) return [];
+  try { 
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { 
+    return [];
+  }
+}
+
+function saveHistory(history) {
+  localStorage.setItem(LS_HISTORY, JSON.stringify(history));
+}
+
+function fmtDT(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString("ru-RU", { year:"2-digit", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+function renderHistory() {
+  const el = document.getElementById("historyList");
+  if (!el) return;
+
+  if (!history.length) {
+    el.innerHTML = `<div class="hint">Пока нет закрытых столов.</div>`;
+    return;
+  }
+
+  // последние сверху
+  const items = [...history].slice(-50).reverse(); // лимит отображения 50
+  el.innerHTML = items.map(h => {
+    const lines = (h.items || []).map(it =>
+      `${escapeHtml(it.name)} — ${it.qty} шт • ${it.price} р`
+    ).join("<br>");
+
+    return `
+      <div class="card" style="margin:8px 0; padding:10px;">
+        <div style="display:flex; justify-content:space-between; gap:10px; font-weight:700;">
+          <div>Стол ${h.table}</div>
+          <div style="opacity:.8; font-weight:600;">${fmtDT(h.ts)}</div>
+        </div>
+        <div style="margin-top:6px; opacity:.9;">
+          Позиции: ${h.positions} • Штук: ${h.totalQty} • Сумма: ${h.totalSum} ₽
+        </div>
+        <div style="margin-top:8px; opacity:.95; line-height:1.35;">
+          ${lines || "<span class='hint'>Пусто</span>"}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 function saveMenu(menu) { localStorage.setItem(LS_MENU, JSON.stringify(menu)); }
 
 function loadOrders() {
@@ -60,6 +114,7 @@ function saveOrders(orders) { localStorage.setItem(LS_ORDERS, JSON.stringify(ord
 
 let menu = loadMenu();
 let orders = loadOrders();
+let history = loadHistory();
 
 let activeTable = Number(localStorage.getItem(LS_TABLE) || "1");
 let activeCat = localStorage.getItem(LS_CAT) || "Все";
@@ -86,6 +141,8 @@ const elNewCat = document.getElementById("newCat");
 const elNewPrice = document.getElementById("newPrice");
 const elAddItem = document.getElementById("addItem");
 const elResetMenu = document.getElementById("resetMenu");
+const elExportHistory = document.getElementById("exportHistory");
+const elClearHistory = document.getElementById("clearHistory");
 const elAdminList = document.getElementById("menuAdminList");
 function parsePriceFromLine(line) {
   // вытаскиваем последнюю группу цифр как цену (поддерживает "350", "350р", "350 ₽", "350руб")
@@ -279,6 +336,7 @@ function renderOrder() {
     elTotals.textContent = "";
     return;
   }
+  
 
   let totalQty = 0;
   let totalSum = 0;
@@ -330,7 +388,6 @@ function renderOrder() {
     </div>
   `;
 }
-
 
 function renderAdmin() {
   elAdminList.innerHTML = "";
@@ -384,7 +441,35 @@ function renderAll() {
   renderMenu();
   renderOrder();
   renderAdmin();
+  renderHistory();
 }
+
+function buildReceiptForTable(tableNum) {
+  const map = tableOrderMap(tableNum);
+  const entries = Object.entries(map)
+    .map(([id, qty]) => ({ item: menu.find(m => m.id === id), qty }))
+    .filter(x => x.item && x.qty > 0);
+
+  let totalQty = 0;
+  let totalSum = 0;
+
+  const items = entries.map(({ item, qty }) => {
+    totalQty += qty;
+    const price = Number(item.price || 0);
+    totalSum += price * qty;
+    return { name: item.name, qty, price };
+  });
+
+  return {
+    ts: Date.now(),
+    table: tableNum,
+    positions: items.length,
+    totalQty,
+    totalSum,
+    items
+  };
+}
+
 
 elSearch.addEventListener("input", (e) => {
   searchText = e.target.value || "";
@@ -404,16 +489,83 @@ elClose.onclick = () => {
     return;
   }
 
+  if (elClearHistory) {
+  elClearHistory.onclick = () => {
+    if (!confirm("Очистить всю историю закрытий?")) return;
+    history = [];
+    saveHistory(history);
+    renderHistory();
+  };
+}
+
+if (elExportHistory) {
+  elExportHistory.onclick = () => {
+    const text = JSON.stringify(history, null, 2);
+
+    // Вариант А: скопировать в буфер (самый простой)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => alert("История скопирована. Вставь в заметки/чат."))
+        .catch(() => alert("Не удалось скопировать. Разреши доступ или используй экспорт файлом."));
+      return;
+    }
+
+    // Вариант Б: скачать файлом (если буфер недоступен)
+    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `history-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+}
+
   if (!confirm(
     `Закрыть стол ${activeTable}?\n` +
-    `Позиции: ${counts.positions}\n` +
+    `Позиций: ${counts.positions}\n` +
     `Всего штук: ${counts.totalQty}`
   )) return;
+
+  // === сохранить стол в историю ===
+  const map = tableOrderMap(activeTable);
+  const entries = Object.entries(map)
+    .map(([id, qty]) => ({ item: menu.find(m => m.id === id), qty }))
+    .filter(x => x.item && x.qty > 0);
+
+  let totalQty = 0;
+  let totalSum = 0;
+
+  const items = entries.map(({ item, qty }) => {
+    totalQty += qty;
+    const price = Number(item.price || 0);
+    totalSum += price * qty;
+    return {
+      name: item.name,
+      qty,
+      price
+    };
+  });
+
+  history.push({
+    ts: Date.now(),
+    table: activeTable,
+    positions: items.length,
+    totalQty,
+    totalSum,
+    items
+  });
+
+  saveHistory(history);
+  renderHistory();
+  // === конец истории ===
 
   orders[String(activeTable)] = {};
   saveOrders(orders);
   renderAll();
 };
+
 
 
 elAddItem.onclick = () => {
