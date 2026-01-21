@@ -84,7 +84,7 @@ function renderHistory() {
           <div style="opacity:.8; font-weight:600;">${fmtDT(h.ts)}</div>
         </div>
         <div style="margin-top:6px; opacity:.9;">
-          Позиции: ${h.positions} • Штук: ${h.totalQty} • Сумма: ${h.totalSum} ₽
+          Позиции: ${h.positions} • Штук: ${h.totalQty} • Сумма: ${h.totalSum} р
         </div>
         <div style="margin-top:8px; opacity:.95; line-height:1.35;">
           ${lines || "<span class='hint'>Пусто</span>"}
@@ -146,7 +146,7 @@ const elClearHistory = document.getElementById("clearHistory");
 const elAdminList = document.getElementById("menuAdminList");
 function parsePriceFromLine(line) {
   // вытаскиваем последнюю группу цифр как цену (поддерживает "350", "350р", "350 ₽", "350руб")
-  const m = line.match(/(\d+)\s*(?:₽|р|руб)?\s*$/i);
+  const m = line.match(/(\d+)\s*(?:р|р|руб)?\s*$/i);
   return m ? Number(m[1]) : null;
 }
 
@@ -154,7 +154,7 @@ function cleanItemName(line) {
   // убираем цену в конце и разделители
   return line
     .replace(/[-–—:]+/g, " ")
-    .replace(/(\d+)\s*(?:₽|р|руб)?\s*$/i, "")
+    .replace(/(\d+)\s*(?:р|р|руб)?\s*$/i, "")
     .trim();
 }
 
@@ -666,3 +666,4 @@ function escapeHtml(s){
 }
 
 renderAll();
+
