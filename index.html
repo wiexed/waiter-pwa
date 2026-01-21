@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>Официант — 10 столов</title>
+  <style>
+    :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e5e7eb; }
+    header { padding: 14px 14px 10px; position: sticky; top: 0; background: #0b1220; border-bottom: 1px solid #1f2937; z-index: 5; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+    .tab { padding: 10px 8px; border-radius: 12px; border: 1px solid #1f2937; background: #111827; cursor: pointer; text-align: center; font-weight: 600; }
+    .tab.active { outline: 2px solid #60a5fa; }
+    .pillbar { display:flex; gap: 8px; overflow:auto; padding: 10px 14px; border-bottom: 1px solid #1f2937; background:#0b1220; position: sticky; top: 66px; z-index: 4; }
+    .pill { padding: 8px 10px; border-radius: 999px; border: 1px solid #1f2937; background:#111827; cursor: pointer; white-space: nowrap; }
+    .pill.active { outline: 2px solid #34d399; }
+    main { padding: 14px; display: grid; gap: 12px; }
+    input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #1f2937; background: #111827; color:#e5e7eb; }
+    .card { border: 1px solid #1f2937; background: #111827; border-radius: 16px; padding: 12px; }
+    .item { display:flex; align-items:center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px dashed #243244; }
+    .item:last-child { border-bottom: 0; }
+    .meta { color:#9ca3af; font-size: 12px; margin-top: 2px; }
+    .stepper { display:flex; align-items:center; gap: 10px; }
+    button { border: 1px solid #1f2937; background:#0b1220; color:#e5e7eb; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+    button.primary { background:#2563eb; border-color:#2563eb; }
+    button.danger { background:#b91c1c; border-color:#b91c1c; }
+    .btnrow { display:flex; gap: 10px; flex-wrap: wrap; }
+    .small { padding: 8px 10px; border-radius: 10px; }
+    .qty { min-width: 26px; text-align:center; font-variant-numeric: tabular-nums; font-weight: 700; }
+    details summary { cursor: pointer; font-weight: 700; }
+    .two { display:grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 900px){ .two { grid-template-columns: 1fr 1fr; } }
+    .hint { color:#9ca3af; font-size: 13px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <div style="font-weight:800; font-size:18px;">Официант (офлайн)</div>
+      <div id="status" class="hint"></div>
+    </div>
+    <div class="tabs" id="tableTabs"></div>
+  </header>
+
+  <div class="pillbar" id="categoryPills"></div>
+
+  <main>
+    <input id="search" placeholder="Поиск блюда…" autocomplete="off" />
+
+    <div class="two">
+      <section class="card">
+        <div class="row" style="justify-content: space-between;">
+          <div style="font-weight:800;">Меню</div>
+          <div class="hint">тапай +/– чтобы менять количество</div>
+        </div>
+        <div id="menuList"></div>
+      </section>
+
+      <section class="card">
+        <div class="row" style="justify-content: space-between;">
+          <div style="font-weight:800;">Заказ (стол <span id="tableNum">1</span>)</div>
+          <div class="btnrow">
+            <button class="small" id="closeTable">Закрыть стол</button>
+<button class="danger small" id="clearTable">Очистить</button>
+
+          </div>
+        </div>
+        <div id="orderList"></div>
+        <div class="hint" id="orderTotals" style="margin-top:10px;"></div>
+      </section>
+    </div>
+
+    <details class="card">
+      <summary>Редактировать меню</summary>
+      <div style="margin-top: 10px;" class="hint">
+        Добавляй блюда и категории. Всё сохраняется офлайн на устройстве.
+      </div>
+      <div style="display:grid; gap:10px; margin-top: 10px;">
+        <input id="newName" placeholder="Название блюда (например, Борщ)" />
+        <input id="newCat" placeholder="Категория (например, Супы)" />
+        <input id="newPrice" placeholder="Цена (например, 350)" inputmode="numeric" />
+        <div class="btnrow">
+          <button class="primary" id="addItem">Добавить</button>
+          <button id="resetMenu">Сбросить меню на стандартное</button>
+          <textarea id="bulkMenuText" placeholder="Вставь меню текстом, например:
+Супы:
+Борщ - 250
+Том Ям 450
+
+Салаты:
+Цезарь 350
+Греческий - 300
+
+Напитки:
+Капучино 220
+" style="width:100%; min-height:160px; padding:12px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb;"></textarea>
+
+<div class="btnrow">
+  <button class="primary" id="importMenu">Импортировать из текста</button>
+  <button class="danger" id="importReplace">Импорт с заменой меню</button>
+</div>
+
+<div class="hint">
+  Формат: категория строкой с двоеточием (<b>Супы:</b>) или в скобках (<b>[Супы]</b>).
+  Блюдо: <b>Название - цена</b> или <b>Название 350</b> (можно ₽/р/руб).
+</div>
+
+        </div>
+        <div id="menuAdminList"></div>
+      </div>
+    </details>
+
+    <div class="hint">
+      Разработано лично для Каринки остальные сасите</b>.
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
