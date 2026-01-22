@@ -633,3 +633,144 @@ elClose?.addEventListener("click", () => {
   if (!confirm(
     `Закрыть стол ${activeTable}?\n` +
     `Позиций: ${receipt.positions}\n` +
+    `Всего штук: ${receipt.totalQty}\n` +
+    `Сумма: ${fmtMoney(receipt.totalSum)}`
+  )) return;
+
+  history.push(receipt);
+  saveHistory(history);
+
+  orders[String(activeTable)] = {};
+  saveOrders(orders);
+
+  renderAll();
+});
+
+elExportHistory?.addEventListener("click", () => {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    history
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `waiter-history-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+});
+
+elClearHistory?.addEventListener("click", () => {
+  if (!confirm("Очистить историю закрытий?")) return;
+  history = [];
+  saveHistory(history);
+  renderHistory();
+});
+
+elAddItem?.addEventListener("click", () => {
+  const name = (elNewName?.value || "").trim();
+  const cat = (elNewCat?.value || "").trim();
+  const sub = (elNewSub?.value || "").trim();
+  const price = Number((elNewPrice?.value || "").trim());
+  const gram = (elNewGram?.value || "").trim();
+  const desc = (elNewDesc?.value || "").trim();
+
+  if (!name) return alert("Введите название");
+  if (!cat) return alert("Введите категорию");
+  if (!Number.isFinite(price) || price < 0) return alert("Введите корректную цену (например 350)");
+
+  menu.push({ id: uuid(), name, category: cat, subcategory: sub, price, gram, desc });
+  saveMenu(menu);
+
+  elNewName.value = "";
+  elNewCat.value = "";
+  elNewSub.value = "";
+  elNewPrice.value = "";
+  elNewGram.value = "";
+  elNewDesc.value = "";
+
+  renderAll();
+});
+
+elImport?.addEventListener("click", () => {
+  const text = (elBulk?.value || "").trim();
+  if (!text) return alert("Вставь текст меню");
+
+  const newItems = parseMenuText(text);
+  if (newItems.length === 0) return alert("Не нашёл блюд в тексте. Проверь формат.");
+
+  mergeMenuItems(newItems);
+  saveMenu(menu);
+
+  elBulk.value = "";
+  activeCat = "Все";
+  activeSub = "Все";
+  localStorage.setItem(LS_CAT, activeCat);
+  localStorage.setItem(LS_SUBCAT, activeSub);
+
+  renderAll();
+  alert(`Импортировано: ${newItems.length} строк(и).`);
+});
+
+elImportReplace?.addEventListener("click", () => {
+  const text = (elBulk?.value || "").trim();
+  if (!text) return alert("Вставь текст меню");
+
+  const newItems = parseMenuText(text);
+  if (newItems.length === 0) return alert("Не нашёл блюд в тексте. Проверь формат.");
+
+  if (!confirm("Заменить текущее меню на импортированное?")) return;
+
+  menu = newItems;
+  saveMenu(menu);
+
+  // очистим заказы
+  const init = {};
+  for (let t=1; t<=10; t++) init[String(t)] = {};
+  orders = init;
+  saveOrders(orders);
+
+  elBulk.value = "";
+  activeCat = "Все";
+  activeSub = "Все";
+  localStorage.setItem(LS_CAT, activeCat);
+  localStorage.setItem(LS_SUBCAT, activeSub);
+
+  renderAll();
+  alert(`Новое меню: ${newItems.length} блюд.`);
+});
+
+elResetMenu?.addEventListener("click", () => {
+  if (!confirm("Сбросить меню на стандартное?")) return;
+
+  menu = [...DEFAULT_MENU].map(x => ({...x, id: uuid()}));
+  saveMenu(menu);
+
+  const init = {};
+  for (let t=1; t<=10; t++) init[String(t)] = {};
+  orders = init;
+  saveOrders(orders);
+
+  activeCat = "Все";
+  activeSub = "Все";
+  localStorage.setItem(LS_CAT, activeCat);
+  localStorage.setItem(LS_SUBCAT, activeSub);
+
+  renderAll();
+});
+
+/* PWA: Service Worker */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  });
+}
+
+window.addEventListener("online", () => renderStatus());
+window.addEventListener("offline", () => renderStatus());
+
+renderAll();
