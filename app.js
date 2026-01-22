@@ -1,4 +1,6 @@
-/* waiter-pwa: простое офлайн меню + 10 столов + история + редактор меню */
+/* waiter-pwa: офлайн меню + 10 столов + история + редактор меню
+   ✅ фикс Safari: одинаковое меню на всех устройствах (версия + сброс localStorage)
+*/
 
 const LS = {
   MENU: "waiter_menu_v2",
@@ -8,11 +10,10 @@ const LS = {
 };
 
 const TABLE_COUNT = 10;
-// ===== Версия данных (меняй при обновлении меню/кода) =====
-const DATA_VERSION = "2026-01-22-01"; // <-- меняй, когда хочешь принудительно обновить меню на устройствах
-const LS_VERSION_KEY = "waiter_data_version_v2";
 
-// Включить автосброс меню при смене версии
+/* ===== Версия данных (меняй при деплое, если хочешь принудительно обновить меню на всех) ===== */
+const DATA_VERSION = "2026-01-22-02";
+const LS_VERSION_KEY = "waiter_data_version_v2";
 const FORCE_RESET_MENU_ON_VERSION_CHANGE = true;
 
 function uid() {
@@ -22,7 +23,7 @@ function uid() {
 function nowISO() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function safeJsonParse(str, fallback) {
@@ -46,19 +47,27 @@ function downloadText(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-function pick(obj, keys) {
-  const out = {};
-  for (const k of keys) if (k in obj) out[k] = obj[k];
-  return out;
+/* ===== Safari фикс: если версия сменилась — сбросить локальные данные ===== */
+function ensureDataVersion() {
+  const cur = localStorage.getItem(LS_VERSION_KEY);
+  if (cur !== DATA_VERSION) {
+    localStorage.setItem(LS_VERSION_KEY, DATA_VERSION);
+
+    if (FORCE_RESET_MENU_ON_VERSION_CHANGE) {
+      localStorage.removeItem(LS.MENU);
+      localStorage.removeItem(LS.TABLES);
+      // историю обычно оставляют, но при желании можно очистить:
+      // localStorage.removeItem(LS.HISTORY);
+    }
+  }
 }
 
-/* ---------- состояние ---------- */
-
+/* ---------- состояние (загружаем в init) ---------- */
 let menu = [];
 let tables = [];
 let history = [];
 
-let selectedTable = loadSelectedTable();
+let selectedTable = 1;
 let selectedCategory = "Все";
 let selectedSub = "Все";
 
@@ -86,6 +95,7 @@ const els = {
   closeEditor: document.getElementById("closeEditor"),
   exportMenu: document.getElementById("exportMenu"),
   importMenu: document.getElementById("importMenu"),
+  resetMenu: document.getElementById("resetMenu"),
 
   fCat: document.getElementById("fCat"),
   fSub: document.getElementById("fSub"),
@@ -97,25 +107,12 @@ const els = {
   resetForm: document.getElementById("resetForm"),
   editHint: document.getElementById("editHint"),
   menuAdminList: document.getElementById("menuAdminList"),
+  itemForm: document.getElementById("itemForm"),
 };
 
 let editingId = null;
 
 /* ---------- storage ---------- */
-
-function loadMenu() {
-  const m = safeJsonParse(localStorage.getItem(LS.MENU), null);
-  if (Array.isArray(m) && m.length) return normalizeMenu(m);
-
-  // Стартовый пример (можешь удалить в редакторе)
-  const starter = [
-    { id: uid(), cat: "Напитки", sub: "Кофе", name: "Американо", grams: "100мл", desc: "", price: 5 },
-    { id: uid(), cat: "Напитки", sub: "Кофе", name: "Капучино", grams: "125мл", desc: "", price: 6 },
-    { id: uid(), cat: "Поляна", sub: "Бургеры", name: "Чизбургер Поляна", grams: "300г", desc: "Котлета 100% говядина, сыр чеддер, огурцы, жареный сыр, фирменный соус", price: 19 },
-  ];
-  localStorage.setItem(LS.MENU, JSON.stringify(starter));
-  return normalizeMenu(starter);
-}
 
 function normalizeMenu(arr) {
   return arr
@@ -126,13 +123,28 @@ function normalizeMenu(arr) {
       name: String(x.name || "").trim(),
       grams: String(x.grams || "").trim(),
       desc: String(x.desc || "").trim(),
-      price: Number.isFinite(Number(x.price)) ? Number(x.price) : parsePriceToken(x.price) ?? 0,
+      price: Number.isFinite(Number(x.price)) ? Number(x.price) : (parsePriceToken(x.price) ?? 0),
     }))
     .filter((x) => x.name.length > 0);
 }
 
+function loadMenu() {
+  const m = safeJsonParse(localStorage.getItem(LS.MENU), null);
+  if (Array.isArray(m)) return normalizeMenu(m);
+
+  // старт пустой (чтобы не было "примеров" на телефоне)
+  const starter = [];
+  localStorage.setItem(LS.MENU, JSON.stringify(starter));
+  return starter;
+}
+
 function saveMenu() {
   localStorage.setItem(LS.MENU, JSON.stringify(menu));
+}
+
+function normalizeTable(t) {
+  const order = (t && typeof t === "object" && t.order && typeof t.order === "object") ? t.order : {};
+  return { order: { ...order } };
 }
 
 function loadTables() {
@@ -141,11 +153,6 @@ function loadTables() {
   const empty = Array.from({ length: TABLE_COUNT }, () => ({ order: {} }));
   localStorage.setItem(LS.TABLES, JSON.stringify(empty));
   return empty;
-}
-
-function normalizeTable(t) {
-  const order = (t && typeof t === "object" && t.order && typeof t.order === "object") ? t.order : {};
-  return { order: { ...order } };
 }
 
 function saveTables() {
@@ -169,21 +176,7 @@ function loadSelectedTable() {
   localStorage.setItem(LS.SEL, "1");
   return 1;
 }
-function ensureDataVersion() {
-  const cur = localStorage.getItem(LS_VERSION_KEY);
 
-  if (cur !== DATA_VERSION) {
-    localStorage.setItem(LS_VERSION_KEY, DATA_VERSION);
-
-    if (FORCE_RESET_MENU_ON_VERSION_CHANGE) {
-      // сбросим меню и заказы, чтобы не было расхождений и "примеров" на телефоне
-      localStorage.removeItem(LS.MENU);
-      localStorage.removeItem(LS.TABLES);
-      // историю можно НЕ трогать, но если хочешь — раскомментируй:
-      // localStorage.removeItem(LS.HISTORY);
-    }
-  }
-}
 function saveSelectedTable() {
   localStorage.setItem(LS.SEL, String(selectedTable));
 }
@@ -255,7 +248,7 @@ function renderTables() {
 
 function renderCategories() {
   const cats = uniqueSorted(menu.map((x) => x.cat));
-  const all = ["Все", ...cats];
+  const all = ["Все", ...cats.length ? cats : ["Без категории"]];
 
   els.categoryPills.innerHTML = "";
   for (const c of all) {
@@ -284,7 +277,7 @@ function renderSubCategories() {
   for (const s of all) {
     const b = document.createElement("button");
     b.className = "pill" + (s === selectedSub ? " active" : "");
-    b.textContent = s;
+    b.textContent = s || "Без подкатегории";
     b.onclick = () => {
       selectedSub = s;
       renderAll();
@@ -308,18 +301,16 @@ function renderMenuList() {
     );
   }
 
-  // группировка по sub внутри выбранной категории (если sub есть)
   els.menuList.innerHTML = "";
   if (items.length === 0) {
-    els.menuList.innerHTML = `<div class="hint" style="padding:10px 0;">Ничего не найдено</div>`;
+    els.menuList.innerHTML = `<div class="hint" style="padding:10px 0;">Меню пустое — нажми “Редактировать меню” и добавь позиции</div>`;
     return;
   }
 
-  // сорт: cat, sub, name
-  items.sort((a,b) =>
-    (a.cat||"").localeCompare(b.cat||"", "ru") ||
-    (a.sub||"").localeCompare(b.sub||"", "ru") ||
-    (a.name||"").localeCompare(b.name||"", "ru")
+  items.sort((a, b) =>
+    (a.cat || "").localeCompare(b.cat || "", "ru") ||
+    (a.sub || "").localeCompare(b.sub || "", "ru") ||
+    (a.name || "").localeCompare(b.name || "", "ru")
   );
 
   for (const it of items) {
@@ -336,7 +327,7 @@ function renderMenuList() {
     const meta = document.createElement("div");
     meta.className = "meta";
     const metaParts = [];
-    if (it.grams) metaParts.push(it.grams); // граммовка мелким
+    if (it.grams) metaParts.push(it.grams);
     if (it.cat) metaParts.push(it.cat + (it.sub ? ` / ${it.sub}` : ""));
     meta.textContent = metaParts.join(" • ");
 
@@ -455,7 +446,6 @@ function renderHistory() {
     return;
   }
 
-  // новые сверху
   const list = [...history].reverse();
   for (const h of list) {
     const wrap = document.createElement("div");
@@ -481,14 +471,14 @@ function renderHistory() {
 function renderEditorList() {
   els.menuAdminList.innerHTML = "";
   if (menu.length === 0) {
-    els.menuAdminList.innerHTML = `<div class="hint">Меню пустое — добавь первую позицию сверху</div>`;
+    els.menuAdminList.innerHTML = `<div class="hint">Меню пустое — добавь первую позицию слева</div>`;
     return;
   }
 
-  const items = [...menu].sort((a,b) =>
-    (a.cat||"").localeCompare(b.cat||"", "ru") ||
-    (a.sub||"").localeCompare(b.sub||"", "ru") ||
-    (a.name||"").localeCompare(b.name||"", "ru")
+  const items = [...menu].sort((a, b) =>
+    (a.cat || "").localeCompare(b.cat || "", "ru") ||
+    (a.sub || "").localeCompare(b.sub || "", "ru") ||
+    (a.name || "").localeCompare(b.name || "", "ru")
   );
 
   for (const it of items) {
@@ -525,7 +515,6 @@ function renderEditorList() {
     del.textContent = "Удалить";
     del.onclick = () => {
       if (!confirm(`Удалить: ${it.name}?`)) return;
-      // убрать из заказов всех столов
       for (const tb of tables) delete tb.order[it.id];
       menu = menu.filter((x) => x.id !== it.id);
       saveMenu(); saveTables();
@@ -534,7 +523,6 @@ function renderEditorList() {
     };
 
     btns.append(edit, del);
-
     row.append(left, btns);
     els.menuAdminList.appendChild(row);
   }
@@ -581,12 +569,13 @@ function closeCurrentTable() {
     })),
   });
 
-  // очистить стол
   tables[selectedTable - 1].order = {};
   saveHistory();
   saveTables();
   renderAll();
 }
+
+/* ---------- редактор ---------- */
 
 function startEdit(id) {
   const it = byId(id);
@@ -646,11 +635,7 @@ function saveFromForm() {
 /* ---------- экспорт / импорт ---------- */
 
 function exportMenu() {
-  const payload = {
-    version: 2,
-    exportedAt: nowISO(),
-    menu,
-  };
+  const payload = { version: 2, exportedAt: nowISO(), menu };
   downloadText(`menu_${Date.now()}.json`, JSON.stringify(payload, null, 2));
 }
 
@@ -665,7 +650,6 @@ function importMenu() {
     const data = safeJsonParse(text, null);
     if (!data) return alert("Не смог прочитать JSON.");
 
-    // допускаем либо {menu:[...]} либо просто массив
     let arr = null;
     if (Array.isArray(data)) arr = data;
     else if (data && Array.isArray(data.menu)) arr = data.menu;
@@ -675,7 +659,6 @@ function importMenu() {
 
     if (!confirm(`Импортировать меню (${norm.length} позиций)? Текущее меню будет заменено.`)) return;
 
-    // при замене меню — очистим заказы, чтобы не было битых id
     menu = norm;
     tables = Array.from({ length: TABLE_COUNT }, () => ({ order: {} }));
     saveMenu();
@@ -692,11 +675,7 @@ function importMenu() {
 }
 
 function exportHistory() {
-  const payload = {
-    version: 2,
-    exportedAt: nowISO(),
-    history,
-  };
+  const payload = { version: 2, exportedAt: nowISO(), history };
   downloadText(`history_${Date.now()}.json`, JSON.stringify(payload, null, 2));
 }
 
@@ -716,7 +695,6 @@ function importHistory() {
     else if (data && Array.isArray(data.history)) arr = data.history;
 
     if (!arr) return alert("В файле нет history массива.");
-
     if (!confirm(`Импортировать историю (${arr.length} записей)? Текущая история будет заменена.`)) return;
 
     history = arr;
@@ -729,13 +707,23 @@ function importHistory() {
 /* ---------- init ---------- */
 
 function init() {
-  // сервис-воркер (офлайн)
-ensureDataVersion();
+  ensureDataVersion();
+
+  // загружаем данные после возможного сброса
   menu = loadMenu();
   tables = loadTables();
   history = loadHistory();
+  selectedTable = loadSelectedTable();
+
+  // сервис-воркер (офлайн)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    navigator.serviceWorker.register("./service-worker.js").then((reg) => {
+      reg.update?.();
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      // когда SW обновился — перезагрузим, чтобы Safari точно взял новое
+      window.location.reload();
+    });
   }
 
   renderAll();
@@ -765,20 +753,59 @@ ensureDataVersion();
 
   els.closeEditor.onclick = () => {
     resetForm();
-    els.menuEditor.close();
+    els.menuEditor.close?.();
+    els.menuEditor.removeAttribute?.("open");
   };
 
   els.exportMenu.onclick = exportMenu;
   els.importMenu.onclick = importMenu;
 
-  els.saveItem.onclick = (e) => { e.preventDefault(); saveFromForm(); };
-  els.resetForm.onclick = (e) => { e.preventDefault(); resetForm(); };
+    els.resetMenu.onclick = () => {
+    if (!confirm("Сбросить меню и очистить заказы на всех столах?")) return;
 
-  // если в меню удалены категории — сброс выбранных
+    // Сброс только меню и заказов (историю не трогаем)
+    menu = [];
+    tables = Array.from({ length: TABLE_COUNT }, () => ({ order: {} }));
+
+    saveMenu();
+    saveTables();
+
+    selectedCategory = "Все";
+    selectedSub = "Все";
+    els.search.value = "";
+
+    resetForm();
+    renderAll();
+    renderEditorList();
+  };
+
+  // Форма: чтобы Enter не перезагружал страницу
+  if (els.itemForm) {
+    els.itemForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveFromForm();
+    });
+  }
+
+  els.saveItem.onclick = (e) => {
+    e.preventDefault();
+    saveFromForm();
+  };
+
+  els.resetForm.onclick = (e) => {
+    e.preventDefault();
+    resetForm();
+  };
+
+  // Esc закрывает редактор (если открыт)
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && els.menuEditor.open) {
-      resetForm();
-      els.menuEditor.close();
+    if (e.key === "Escape") {
+      const isOpen = !!(els.menuEditor && (els.menuEditor.open || els.menuEditor.hasAttribute?.("open")));
+      if (isOpen) {
+        resetForm();
+        els.menuEditor.close?.();
+        els.menuEditor.removeAttribute?.("open");
+      }
     }
   });
 }
