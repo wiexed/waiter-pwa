@@ -1,4 +1,4 @@
-const CACHE = "waiter-pwa-v2";
+const CACHE = "waiter-pwa-v3";
 const ASSETS = [
   "./",
   "./index.html",
