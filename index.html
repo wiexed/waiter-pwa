@@ -6,8 +6,6 @@
   <meta name="theme-color" content="#0b1220" />
   <title>Официант — 10 столов</title>
 
-  <link rel="manifest" href="manifest.json" />
-
   <style>
     :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e5e7eb; }
@@ -98,9 +96,8 @@
       background: #111827;
       color:#e5e7eb;
       box-sizing: border-box;
-      outline: none;
+      resize: vertical;
     }
-    textarea { min-height: 80px; resize: vertical; }
 
     .item {
       display:flex;
@@ -129,31 +126,39 @@
     }
     button:disabled { opacity: .4; cursor: default; }
     button.danger { background:#b91c1c; border-color:#b91c1c; }
-    .btnrow { display:flex; gap: 10px; flex-wrap: wrap; }
+    .btnrow { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .small { padding: 8px 10px; border-radius: 10px; }
 
-    dialog::backdrop { background: rgba(0,0,0,.6); }
-    dialog { padding: 0; }
-    .dlgHead {
-      padding: 12px 14px;
-      border-bottom: 1px solid #1f2937;
+    /* ===== modal editor ===== */
+    dialog {
+      width: min(900px, calc(100vw - 24px));
+      border: 1px solid #1f2937;
       background: #0b1220;
-      border-top-left-radius: 16px;
-      border-top-right-radius: 16px;
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      gap: 10px;
+      color: #e5e7eb;
+      border-radius: 16px;
+      padding: 0;
     }
-    .dlgBody { padding: 14px; }
-    .grid2 { display:grid; grid-template-columns: 1fr; gap: 10px; }
-    @media (min-width: 720px){ .grid2 { grid-template-columns: 1fr 1fr; } }
+    dialog::backdrop { background: rgba(0,0,0,.55); }
 
-    .listMini { margin-top: 12px; border-top: 1px dashed #243244; padding-top: 12px; }
-    .miniRow { display:flex; justify-content:space-between; gap:10px; padding: 10px 0; border-bottom: 1px dashed #243244; }
-    .miniRow:last-child { border-bottom: 0; }
+    .modalHead {
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid #1f2937;
+      display:flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      background: #0b1220;
+      z-index: 1;
+    }
+    .modalBody { padding: 12px; display:grid; gap: 12px; }
+    .grid2 { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 800px){ .grid2 { grid-template-columns: 1fr 1fr; } }
+
+    .miniRow { display:flex; gap: 10px; align-items:center; padding: 10px 0; border-bottom: 1px dashed #243244; }
     .miniTitle { font-weight: 900; }
-    .miniBtns { display:flex; gap:8px; flex-wrap:wrap; }
+    .miniBtns { display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   </style>
 </head>
 
@@ -161,7 +166,8 @@
   <header>
     <div class="row" style="justify-content: space-between;">
       <div style="font-weight:900; font-size:18px;">Официант (офлайн)</div>
-      <div class="row">
+
+      <div class="btnrow">
         <button class="small" id="openEditor">Редактировать меню</button>
         <div id="status" class="hint"></div>
       </div>
@@ -217,65 +223,48 @@
       <div id="historyList" style="padding:0 12px 12px;"></div>
     </details>
 
-    <div class="hint">Разработано лично для моей Каринки<3 остальные сасите.</div>
+    <div class="hint">Валюта: р • Граммовка мелким • Иконок нет</div>
   </main>
 
-  <!-- Редактор меню -->
-  <dialog id="menuEditor" style="width:min(900px, 96vw); border:1px solid #1f2937; border-radius:16px; background:#0b1220; color:#e5e7eb;">
-    <div class="dlgHead">
+  <!-- ===== Editor Modal ===== -->
+  <dialog id="menuEditor">
+    <div class="modalHead">
       <div style="font-weight:900;">Редактор меню</div>
-      <div class="row">
+      <div class="btnrow">
         <button class="small" id="exportMenu">Экспорт меню</button>
         <button class="small" id="importMenu">Импорт меню</button>
+        <button class="danger small" id="resetMenu">Сбросить меню</button>
         <button class="small" id="closeEditor">Закрыть</button>
       </div>
     </div>
 
-    <div class="dlgBody">
+    <div class="modalBody">
       <div class="grid2">
-        <label>
-          <div class="hint">Категория</div>
-          <input id="fCat" placeholder="Напитки / Поляна / Алкоголь..." />
-        </label>
+        <div class="card">
+          <div style="font-weight:900; margin-bottom:8px;">Добавить / править позицию</div>
+          <form id="itemForm" style="display:grid; gap:10px;">
+            <input id="fCat" placeholder="Категория (например: Напитки)" />
+            <input id="fSub" placeholder="Подкатегория (например: Кофе)" />
+            <input id="fName" placeholder="Название (например: Капучино)" />
+            <input id="fGram" placeholder="Граммовка (например: 200мл или 250г)" />
+            <input id="fPrice" placeholder="Цена (например: 19)" />
+            <textarea id="fDesc" placeholder="Описание / состав (необязательно)" rows="3"></textarea>
 
-        <label>
-          <div class="hint">Подкатегория (необязательно)</div>
-          <input id="fSub" placeholder="Лимонады / Пиво / ..." />
-        </label>
-
-        <label style="grid-column: 1 / -1;">
-          <div class="hint">Название</div>
-          <input id="fName" placeholder="Например: Мохито" />
-        </label>
-
-        <label>
-          <div class="hint">Граммовка (мелким)</div>
-          <input id="fGram" placeholder="250г / 300мл / 0,75л" />
-        </label>
-
-        <label>
-          <div class="hint">Цена (в р)</div>
-          <input id="fPrice" inputmode="decimal" placeholder="19" />
-        </label>
-
-        <label style="grid-column: 1 / -1;">
-          <div class="hint">Состав / описание</div>
-          <textarea id="fDesc" placeholder="Мята, лайм, сахарный сироп..."></textarea>
-        </label>
-      </div>
-
-      <div class="row" style="margin-top:12px;">
-        <button id="saveItem">Добавить</button>
-        <button id="resetForm" class="small">Сброс</button>
-        <span class="hint" id="editHint"></span>
-      </div>
-
-      <div class="listMini">
-        <div class="row" style="justify-content: space-between;">
-          <div style="font-weight:900;">Позиции меню</div>
-          <div class="hint">Редактируй / удаляй — сохраняется офлайн</div>
+            <div class="btnrow">
+              <button type="submit" id="saveItem">Добавить</button>
+              <button type="button" class="small" id="resetForm">Сброс формы</button>
+            </div>
+            <div class="hint" id="editHint"></div>
+          </form>
         </div>
-        <div id="menuAdminList"></div>
+
+        <div class="card">
+          <div style="font-weight:900; margin-bottom:8px;">Позиции меню</div>
+          <div class="hint" style="margin-bottom:10px;">
+            Советы: одинаковые категории/подкатегории удобно копировать вставкой.
+          </div>
+          <div id="menuAdminList"></div>
+        </div>
       </div>
     </div>
   </dialog>
