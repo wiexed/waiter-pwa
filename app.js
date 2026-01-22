@@ -8,6 +8,12 @@ const LS = {
 };
 
 const TABLE_COUNT = 10;
+// ===== Версия данных (меняй при обновлении меню/кода) =====
+const DATA_VERSION = "2026-01-22-01"; // <-- меняй, когда хочешь принудительно обновить меню на устройствах
+const LS_VERSION_KEY = "waiter_data_version_v2";
+
+// Включить автосброс меню при смене версии
+const FORCE_RESET_MENU_ON_VERSION_CHANGE = true;
 
 function uid() {
   return "i_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
@@ -163,7 +169,21 @@ function loadSelectedTable() {
   localStorage.setItem(LS.SEL, "1");
   return 1;
 }
+function ensureDataVersion() {
+  const cur = localStorage.getItem(LS_VERSION_KEY);
 
+  if (cur !== DATA_VERSION) {
+    localStorage.setItem(LS_VERSION_KEY, DATA_VERSION);
+
+    if (FORCE_RESET_MENU_ON_VERSION_CHANGE) {
+      // сбросим меню и заказы, чтобы не было расхождений и "примеров" на телефоне
+      localStorage.removeItem(LS.MENU);
+      localStorage.removeItem(LS.TABLES);
+      // историю можно НЕ трогать, но если хочешь — раскомментируй:
+      // localStorage.removeItem(LS.HISTORY);
+    }
+  }
+}
 function saveSelectedTable() {
   localStorage.setItem(LS.SEL, String(selectedTable));
 }
@@ -710,6 +730,7 @@ function importHistory() {
 
 function init() {
   // сервис-воркер (офлайн)
+ensureDataVersion();
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./service-worker.js").catch(() => {});
   }
