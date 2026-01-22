@@ -75,6 +75,7 @@ const els = {
   status: document.getElementById("status"),
   tableTabs: document.getElementById("tableTabs"),
   tableNum: document.getElementById("tableNum"),
+  tableNote: document.getElementById("tableNote"),
   menuList: document.getElementById("menuList"),
   orderList: document.getElementById("orderList"),
   orderTotals: document.getElementById("orderTotals"),
