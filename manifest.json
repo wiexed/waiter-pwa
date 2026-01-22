@@ -1,8 +1,9 @@
 {
-  "name": "Официант (офлайн)",
+  "name": "Официант — 10 столов",
   "short_name": "Официант",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b1220",
-  "theme_color": "#0b1220"
+  "theme_color": "#0b1220",
+  "icons": []
 }
