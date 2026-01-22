@@ -54,9 +54,9 @@ function pick(obj, keys) {
 
 /* ---------- состояние ---------- */
 
-let menu = loadMenu();
-let tables = loadTables();
-let history = loadHistory();
+let menu = [];
+let tables = [];
+let history = [];
 
 let selectedTable = loadSelectedTable();
 let selectedCategory = "Все";
@@ -731,6 +731,9 @@ function importHistory() {
 function init() {
   // сервис-воркер (офлайн)
 ensureDataVersion();
+  menu = loadMenu();
+  tables = loadTables();
+  history = loadHistory();
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./service-worker.js").catch(() => {});
   }
