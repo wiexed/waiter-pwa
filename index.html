@@ -5,76 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1220" />
   <title>Официант — 10 столов</title>
+
+  <link rel="manifest" href="./manifest.json" />
+
   <style>
     :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e5e7eb; }
-    header { padding: 14px 14px 10px; position: sticky; top: 0; background: #0b1220; border-bottom: 1px solid #1f2937; z-index: 5; }
+    header { padding: 14px 14px 10px; position: sticky; top: 0; background: #0b1220; border-bottom: 1px solid #1f2937; z-index: 10; }
+    main { padding: 14px; display: grid; gap: 12px; }
+
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .hint { color:#9ca3af; font-size: 13px; line-height: 1.4; }
+    .card { border: 1px solid #1f2937; background: #111827; border-radius: 16px; padding: 12px; }
+    .two { display:grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 900px){ .two { grid-template-columns: 1fr 1fr; } }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      background: #111827;
+      color:#e5e7eb;
+      box-sizing: border-box;
+    }
+
+    /* Tabs (столы) */
     .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
-    .tab { padding: 10px 8px; border-radius: 12px; border: 1px solid #1f2937; background: #111827; cursor: pointer; text-align: center; font-weight: 600; }
+    .tab { padding: 10px 8px; border-radius: 12px; border: 1px solid #1f2937; background: #0b1220; cursor: pointer; text-align: center; font-weight: 600; }
     .tab.active { outline: 2px solid #60a5fa; }
-    .pillbar { display:flex; gap: 8px; overflow:auto; padding: 10px 14px; border-bottom: 1px solid #1f2937; background:#0b1220; position: sticky; top: 66px; z-index: 4; }
+
+    /* Pills */
+    .pillbar { display:flex; gap: 8px; overflow:auto; padding: 10px 14px; border-bottom: 1px solid #1f2937; background:#0b1220; position: sticky; top: 146px; z-index: 9; }
+    .subpillbar { display:flex; gap: 8px; overflow:auto; padding: 0 14px 10px; border-bottom: 1px solid #1f2937; background:#0b1220; position: sticky; top: 196px; z-index: 8; }
     .pill { padding: 8px 10px; border-radius: 999px; border: 1px solid #1f2937; background:#111827; cursor: pointer; white-space: nowrap; }
     .pill.active { outline: 2px solid #34d399; }
-    main { padding: 14px; display: grid; gap: 12px; }
-    input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #1f2937; background: #111827; color:#e5e7eb; }
-    .card { border: 1px solid #1f2937; background: #111827; border-radius: 16px; padding: 12px; }
+
+    /* Menu / Order items */
     .item { display:flex; align-items:center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px dashed #243244; }
     .item:last-child { border-bottom: 0; }
     .meta { color:#9ca3af; font-size: 12px; margin-top: 2px; }
+    .desc { color:#cbd5e1; font-size: 12px; margin-top: 6px; line-height: 1.35; opacity: .9; }
     .stepper { display:flex; align-items:center; gap: 10px; }
+    .qty { min-width: 26px; text-align:center; font-variant-numeric: tabular-nums; font-weight: 700; }
+
     button { border: 1px solid #1f2937; background:#0b1220; color:#e5e7eb; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
     button.primary { background:#2563eb; border-color:#2563eb; }
     button.danger { background:#b91c1c; border-color:#b91c1c; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
     .btnrow { display:flex; gap: 10px; flex-wrap: wrap; }
     .small { padding: 8px 10px; border-radius: 10px; }
-    .qty { min-width: 26px; text-align:center; font-variant-numeric: tabular-nums; font-weight: 700; }
-    details summary { cursor: pointer; font-weight: 700; }
-    .two { display:grid; grid-template-columns: 1fr; gap: 12px; }
-    @media (min-width: 900px){ .two { grid-template-columns: 1fr 1fr; } }
-    .hint { color:#9ca3af; font-size: 13px; line-height: 1.4; }
-    .tables-details {
-  margin-top: 10px;
-}
 
-.tables-summary {
-  color: #9ca3af;
-  font-weight: 700;
-  cursor: pointer;
-  user-select: none;
-  margin-bottom: 8px;
-}
+    /* DETAILS: убираем стандартный треугольник, делаем свой */
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display:none; }
+    details > summary {
+      cursor: pointer;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    details > summary::before {
+      content: "▶";
+      display: inline-block;
+      transform-origin: center;
+      transition: transform .15s ease;
+      opacity: .9;
+    }
+    details[open] > summary::before { transform: rotate(90deg); }
 
-    .triangle-btn {
-  padding: 6px 10px;
-  font-size: 14px;
-  line-height: 1;
-  border-radius: 8px;
-  opacity: 0.6;
-}
-
-.triangle-btn:hover {
-  opacity: 1;
-}
-
+    /* Чтобы sticky pillbar не налезал на header при разных высотах */
+    @media (max-width: 900px){
+      .pillbar { top: 136px; }
+      .subpillbar { top: 186px; }
+    }
   </style>
 </head>
+
 <body>
   <header>
-  <div class="row">
-    <div style="font-weight:800; font-size:18px;">Официант (офлайн)</div>
-    <div id="status" class="hint"></div>
-  </div>
+    <div class="row">
+      <div style="font-weight:900; font-size:20px;">Официант (офлайн)</div>
+      <div id="status" class="hint"></div>
+    </div>
 
-  <details class="card" id="tablesDetails" style="margin-top:10px;" open>
-  <summary id="tablesSummary" style="cursor:pointer; font-weight:700;">Столы</summary>
-  <div class="tabs" id="tableTabs"></div>
-</details>
-
-</header>
-
+    <details class="card" id="tablesDetails" style="margin-top:10px;">
+      <summary id="tablesSummary">Столы</summary>
+      <div class="tabs" id="tableTabs"></div>
+    </details>
+  </header>
 
   <div class="pillbar" id="categoryPills"></div>
+  <div class="subpillbar" id="subCategoryPills" style="display:none;"></div>
 
   <main>
     <input id="search" placeholder="Поиск блюда…" autocomplete="off" />
@@ -82,7 +106,7 @@
     <div class="two">
       <section class="card">
         <div class="row" style="justify-content: space-between;">
-          <div style="font-weight:800;">Меню</div>
+          <div style="font-weight:900;">Меню</div>
           <div class="hint">тапай +/– чтобы менять количество</div>
         </div>
         <div id="menuList"></div>
@@ -90,80 +114,81 @@
 
       <section class="card">
         <div class="row" style="justify-content: space-between;">
-          <div style="font-weight:800;">Заказ (стол <span id="tableNum">1</span>)</div>
+          <div style="font-weight:900;">Заказ (стол <span id="tableNum">1</span>)</div>
           <div class="btnrow">
             <button class="small" id="closeTable">Закрыть стол</button>
-<button class="danger small" id="clearTable">Очистить</button>
-
+            <button class="danger small" id="clearTable">Очистить</button>
           </div>
         </div>
         <div id="orderList"></div>
-        <div class="hint" id="orderTotals" style="margin-top:10px;"></div>
+        <div id="orderTotals" style="margin-top:10px;"></div>
       </section>
     </div>
+
     <details class="card" style="margin-top:12px;">
-  <summary style="cursor:pointer; font-weight:700;">История закрытий</summary>
+      <summary>История закрытий</summary>
 
-  <div style="display:flex; gap:8px; margin:10px 0;">
-    <button id="exportHistory" class="small">Экспорт</button>
-    <button id="clearHistory" class="danger small">Очистить историю</button>
-  </div>
+      <div class="btnrow" style="margin-top:10px;">
+        <button id="exportHistory" class="small">Экспорт</button>
+        <button id="clearHistory" class="danger small">Очистить историю</button>
+      </div>
 
-  <div id="historyList" class="list"></div>
-</details>
+      <div id="historyList" class="list" style="margin-top:10px;"></div>
+    </details>
 
-
+    <!-- Редактирование меню (потом можно удалить целиком) -->
     <details class="card">
       <summary>Редактировать меню</summary>
-      <div style="margin-top: 10px;" class="hint">
+      <div class="hint" style="margin-top:10px;">
         Добавляй блюда и категории. Всё сохраняется офлайн на устройстве.
       </div>
-      <div style="display:grid; gap:10px; margin-top: 10px;">
-        <input id="newName" placeholder="Название блюда (например, Борщ)" />
-        <input id="newCat" placeholder="Категория (например, Супы)" />
+
+      <div style="display:grid; gap:10px; margin-top:10px;">
+        <input id="newName" placeholder="Название (например, Борщ)" />
+        <input id="newCat" placeholder="Категория (например, Алкоголь)" />
+        <input id="newSub" placeholder="Подкатегория (например, Ром) — можно пусто" />
         <input id="newPrice" placeholder="Цена (например, 350)" inputmode="numeric" />
+        <input id="newGram" placeholder="Граммовка (например, 300 мл / 180 г) — можно пусто" />
+        <input id="newDesc" placeholder="Описание (например, нежный сливочный вкус) — можно пусто" />
+
         <div class="btnrow">
           <button class="primary" id="addItem">Добавить</button>
           <button id="resetMenu">Сбросить меню на стандартное</button>
-          <textarea id="bulkMenuText" placeholder="Вставь меню текстом, например:
-Супы:
-Борщ - 250
-Том Ям 450
-
-Салаты:
-Цезарь 350
-Греческий - 300
-
-Напитки:
-Капучино 220
-" style="width:100%; min-height:160px; padding:12px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb;"></textarea>
-
-<div class="btnrow">
-  <button class="primary" id="importMenu">Импортировать из текста</button>
-  <button class="danger" id="importReplace">Импорт с заменой меню</button>
-</div>
-
-<div class="hint">
-  Формат: категория строкой с двоеточием (<b>Супы:</b>) или в скобках (<b>[Супы]</b>).
-  Блюдо: <b>Название - цена</b> или <b>Название 350</b> (можно ₽/р/руб).
-</div>
-
         </div>
-        <div id="menuAdminList"></div>
+
+        <textarea id="bulkMenuText" placeholder="Импорт меню текстом (пример):
+Напитки:
+[Смузи]
+Манго-маракуйя 350 300мл | нежный, густой
+[Лимонады]
+Классический 250 400мл
+
+Алкоголь:
+[Ром]
+Bacardi 300 50мл
+" style="min-height:180px;"></textarea>
+
+        <div class="btnrow">
+          <button class="primary" id="importMenu">Импортировать</button>
+          <button class="danger" id="importReplace">Импорт с заменой</button>
+        </div>
+
+        <div class="hint">
+          Категория: строка с двоеточием (<b>Напитки:</b>)<br/>
+          Подкатегория: строка в скобках (<b>[Смузи]</b>)<br/>
+          Позиция: <b>Название цена граммовка | описание</b><br/>
+          Пример: <b>Манго 350 300мл | вкусно</b> (граммовка/описание можно не писать)
+        </div>
       </div>
+
+      <div id="menuAdminList" style="margin-top:10px;"></div>
     </details>
 
     <div class="hint">
-      Разработано лично для моей Каринки остальные сасите</b>.
+      Разработано лично для моей Каринки остальные сасите.
     </div>
   </main>
 
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
-
-
-
-
-
-
