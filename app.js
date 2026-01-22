@@ -143,14 +143,19 @@ function saveMenu() {
 }
 
 function normalizeTable(t) {
-  const order = (t && typeof t === "object" && t.order && typeof t.order === "object") ? t.order : {};
-  return { order: { ...order } };
+  return {
+    order: (t && t.order && typeof t.order === "object") ? { ...t.order } : {},
+    note: (t && typeof t.note === "string") ? t.note : ""
+  };
 }
 
 function loadTables() {
   const t = safeJsonParse(localStorage.getItem(LS.TABLES), null);
   if (Array.isArray(t) && t.length === TABLE_COUNT) return t.map(normalizeTable);
-  const empty = Array.from({ length: TABLE_COUNT }, () => ({ order: {} }));
+  const empty = Array.from({ length: TABLE_COUNT }, () => ({
+  order: {},
+  note: ""
+}));
   localStorage.setItem(LS.TABLES, JSON.stringify(empty));
   return empty;
 }
