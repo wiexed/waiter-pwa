@@ -3,65 +3,137 @@ function uuid() {
   return "id-" + Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
 }
 
-const LS_MENU = "waiter_menu_v2";
-const LS_ORDERS = "waiter_orders_v2";
-const LS_TABLE = "waiter_active_table_v2";
-const LS_CAT = "waiter_active_cat_v2";
-const LS_SUBCAT = "waiter_active_subcat_v2";
-const LS_HISTORY = "waiter_history_v2";
-const LS_UI_TABLES_OPEN = "waiter_ui_tables_open_v2";
+/* ===== Storage keys ===== */
+const LS_MENU     = "waiter_menu_v2";
+const LS_CATS     = "waiter_categories_v2";
+const LS_ORDERS   = "waiter_orders_v2";
+const LS_TABLE    = "waiter_active_table_v2";
+const LS_CAT      = "waiter_active_cat_v2";
+const LS_SUBCAT   = "waiter_active_subcat_v2";
+const LS_SEARCH   = "waiter_search_v2";
+const LS_HISTORY  = "waiter_history_v2";
+const LS_TABLES_OPEN = "waiter_tables_open_v2";
 
-const DEFAULT_MENU = [
-  // Минимум “демо”, потом ты импортом заменишь
-  { id: uuid(), name: "Пример: Капучино", category: "Напитки", subcategory: "Кофе", price: 220, gram: "200 мл", desc: "Классический капучино" },
-  { id: uuid(), name: "Пример: Том Ям", category: "Еда", subcategory: "Супы", price: 450, gram: "350 г", desc: "Острый суп с морепродуктами" },
+/* ===== Категории по умолчанию (без позиций) ===== */
+const DEFAULT_CATEGORIES = [
+  "Закуски",
+  "Напитки и соки",
+  "Смузи",
+  "Лимонады",
+  "Милкшейки",
+  "Десерты",
+  "Коктейли",
+  "Коктейли классические",
+  "Коктейли авторские и твист",
+  "Безалкогольные коктейли",
+  "Микс дринк",
+  "Фирменные наливки",
+  "Шоты",
+  "Сеты шотов",
+  "Пиво",
+  "К пиву",
+  "Шотландские виски",
+  "Ирландские виски",
+  "Американские виски",
+  "Ром",
+  "Водка",
+  "Текила / Джин",
+  "Ликеры",
+  "Коньяк",
+  "Вермуты",
+  "Горячие коктейли",
+  "Домашние вина",
+  "Белые вина",
+  "Красные вина",
+  "Розовое вино",
+  "Игристое вино",
+  "Листовой чай",
+  "Чайные напитки",
+  "Бабл-напитки",
+  "Кофе",
+  "Кофейные напитки",
+  "Бутылочка с собой",
+  "Поляна"
 ];
+
+/* ===== Helpers ===== */
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function num(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
+
+function fmtDT(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString("ru-RU", { year:"2-digit", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+/* ===== Load / Save ===== */
+function loadCategories(){
+  const raw = localStorage.getItem(LS_CATS);
+  if (!raw) {
+    localStorage.setItem(LS_CATS, JSON.stringify(DEFAULT_CATEGORIES));
+    return [...DEFAULT_CATEGORIES];
+  }
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && arr.length) return arr;
+    return [...DEFAULT_CATEGORIES];
+  } catch {
+    return [...DEFAULT_CATEGORIES];
+  }
+}
+function saveCategories(cats){ localStorage.setItem(LS_CATS, JSON.stringify(cats)); }
 
 function loadMenu() {
   const raw = localStorage.getItem(LS_MENU);
   if (!raw) {
-    localStorage.setItem(LS_MENU, JSON.stringify(DEFAULT_MENU));
-    return [...DEFAULT_MENU];
+    localStorage.setItem(LS_MENU, JSON.stringify([]));
+    return [];
   }
   try {
     const parsed = JSON.parse(raw);
-    const fixed = (Array.isArray(parsed) ? parsed : []).map(m => ({
-      id: String(m.id || uuid()),
-      name: String(m.name || ""),
-      category: String(m.category || "Без категории"),
-      subcategory: String(m.subcategory || ""),
-      price: Number.isFinite(Number(m.price)) ? Number(m.price) : 0,
-      gram: String(m.gram || ""),
-      desc: String(m.desc || ""),
-    }));
-    localStorage.setItem(LS_MENU, JSON.stringify(fixed));
-    return fixed;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(m => ({
+      id: m.id || uuid(),
+      name: String(m.name || "").trim(),
+      category: String(m.category || "").trim(),
+      subcat: String(m.subcat || "").trim(),
+      grams: String(m.grams || "").trim(), // "250г", "200мл"
+      desc: String(m.desc || "").trim(),
+      price: num(m.price)
+    })).filter(x => x.name);
   } catch {
-    return [...DEFAULT_MENU];
+    return [];
   }
 }
-function saveMenu(menu) { localStorage.setItem(LS_MENU, JSON.stringify(menu)); }
+function saveMenu(menu){ localStorage.setItem(LS_MENU, JSON.stringify(menu)); }
 
 function loadOrders() {
   const raw = localStorage.getItem(LS_ORDERS);
   if (!raw) {
     const init = {};
-    for (let t = 1; t <= 10; t++) init[String(t)] = {};
+    for (let t=1; t<=10; t++) init[String(t)] = {};
     localStorage.setItem(LS_ORDERS, JSON.stringify(init));
     return init;
   }
   try {
     const obj = JSON.parse(raw);
-    if (!obj || typeof obj !== "object") throw new Error("bad");
-    for (let t = 1; t <= 10; t++) obj[String(t)] = obj[String(t)] || {};
+    if (!obj || typeof obj !== "object") throw 0;
+    for (let t=1; t<=10; t++) obj[String(t)] = obj[String(t)] || {};
     return obj;
   } catch {
     const init = {};
-    for (let t = 1; t <= 10; t++) init[String(t)] = {};
+    for (let t=1; t<=10; t++) init[String(t)] = {};
     return init;
   }
 }
-function saveOrders(orders) { localStorage.setItem(LS_ORDERS, JSON.stringify(orders)); }
+function saveOrders(orders){ localStorage.setItem(LS_ORDERS, JSON.stringify(orders)); }
 
 function loadHistory() {
   const raw = localStorage.getItem(LS_HISTORY);
@@ -73,38 +145,21 @@ function loadHistory() {
     return [];
   }
 }
-function saveHistory(history) { localStorage.setItem(LS_HISTORY, JSON.stringify(history)); }
+function saveHistory(history){ localStorage.setItem(LS_HISTORY, JSON.stringify(history)); }
 
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-function fmtMoney(n){ return `${Number(n||0)} р`; }
-function fmtDT(ts) {
-  const d = new Date(ts);
-  return d.toLocaleString("ru-RU", { year:"2-digit", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
-}
-
-/* state */
+/* ===== State ===== */
+let categoriesList = loadCategories();
 let menu = loadMenu();
 let orders = loadOrders();
 let history = loadHistory();
 
 let activeTable = Number(localStorage.getItem(LS_TABLE) || "1");
 let activeCat = localStorage.getItem(LS_CAT) || "Все";
-let activeSub = localStorage.getItem(LS_SUBCAT) || "Все";
-let searchText = "";
+let activeSubCat = localStorage.getItem(LS_SUBCAT) || "Все";
+let searchText = localStorage.getItem(LS_SEARCH) || "";
 
-/* elements */
+/* ===== DOM ===== */
 const elTabs = document.getElementById("tableTabs");
-const elTablesDetails = document.getElementById("tablesDetails");
-const elPills = document.getElementById("categoryPills");
-const elSubPills = document.getElementById("subCategoryPills");
-
 const elMenu = document.getElementById("menuList");
 const elOrder = document.getElementById("orderList");
 const elTotals = document.getElementById("orderTotals");
@@ -115,46 +170,49 @@ const elSearch = document.getElementById("search");
 const elClear = document.getElementById("clearTable");
 const elClose = document.getElementById("closeTable");
 
-/* admin */
-const elNewName = document.getElementById("newName");
-const elNewCat = document.getElementById("newCat");
-const elNewSub = document.getElementById("newSub");
-const elNewPrice = document.getElementById("newPrice");
-const elNewGram = document.getElementById("newGram");
-const elNewDesc = document.getElementById("newDesc");
-const elAddItem = document.getElementById("addItem");
-const elResetMenu = document.getElementById("resetMenu");
-const elAdminList = document.getElementById("menuAdminList");
+const elCatPills = document.getElementById("categoryPills");
+const elSubPills = document.getElementById("subCategoryPills");
 
-const elBulk = document.getElementById("bulkMenuText");
-const elImport = document.getElementById("importMenu");
-const elImportReplace = document.getElementById("importReplace");
-
-/* history ui */
 const elHistoryList = document.getElementById("historyList");
 const elExportHistory = document.getElementById("exportHistory");
 const elClearHistory = document.getElementById("clearHistory");
 
-/* tables open state remember */
-if (elTablesDetails) {
-  const saved = localStorage.getItem(LS_UI_TABLES_OPEN);
-  if (saved === "0") elTablesDetails.open = false;
-  if (saved === "1") elTablesDetails.open = true;
-  elTablesDetails.addEventListener("toggle", () => {
-    localStorage.setItem(LS_UI_TABLES_OPEN, elTablesDetails.open ? "1" : "0");
-  });
+const elTablesDetails = document.getElementById("tablesDetails");
+
+const elBulk = document.getElementById("bulkMenuText");
+const elImportReplace = document.getElementById("importReplace");
+const elResetAll = document.getElementById("resetAll");
+
+/* ===== Tables open/close persistent ===== */
+function applyTablesOpenState(){
+  const saved = localStorage.getItem(LS_TABLES_OPEN);
+  const isOpen = saved === null ? true : (saved === "1");
+  elTablesDetails.open = isOpen;
+}
+applyTablesOpenState();
+
+elTablesDetails.addEventListener("toggle", () => {
+  localStorage.setItem(LS_TABLES_OPEN, elTablesDetails.open ? "1" : "0");
+});
+
+/* ===== Logic ===== */
+function renderStatus() {
+  const online = navigator.onLine ? "онлайн" : "офлайн";
+  elStatus.textContent = `Сейчас: ${online}`;
 }
 
 function tableOrderMap(tableNum) {
   return orders[String(tableNum)] || {};
 }
+
 function tableCounts(tableNum) {
   const map = tableOrderMap(tableNum);
   const entries = Object.entries(map);
-  const positions = entries.filter(([,q]) => q > 0).length;
+  const positions = entries.filter(([,q]) => (q||0) > 0).length;
   const totalQty = entries.reduce((s,[,q]) => s + (q||0), 0);
   return { positions, totalQty };
 }
+
 function adjustQty(menuId, delta) {
   const map = tableOrderMap(activeTable);
   const next = (map[menuId] || 0) + delta;
@@ -165,19 +223,22 @@ function adjustQty(menuId, delta) {
   renderAll();
 }
 
-function categories() {
-  const set = new Set(menu.map(m => m.category).filter(Boolean));
-  return ["Все", ...Array.from(set).sort((a,b)=>a.localeCompare(b,'ru'))];
-}
-function subcategoriesFor(cat) {
-  if (!cat || cat === "Все") return ["Все"];
-  const set = new Set(menu.filter(m => m.category === cat).map(m => m.subcategory).filter(x => x && x.trim()));
+function getAllCategories() {
+  // показываем "Все" + категории из списка + категории из меню (если появятся новые)
+  const fromMenu = new Set(menu.map(m => m.category).filter(Boolean));
+  const set = new Set([...categoriesList, ...fromMenu].filter(Boolean));
   const arr = Array.from(set).sort((a,b)=>a.localeCompare(b,'ru'));
   return ["Все", ...arr];
 }
 
+function getSubCategoriesFor(cat) {
+  if (cat === "Все") return ["Все"];
+  const set = new Set(menu.filter(m => m.category === cat).map(m => m.subcat).filter(Boolean));
+  const arr = Array.from(set).sort((a,b)=>a.localeCompare(b,'ru'));
+  return arr.length ? ["Все", ...arr] : ["Все"];
+}
+
 function renderTabs() {
-  if (!elTabs) return;
   elTabs.innerHTML = "";
   for (let t=1; t<=10; t++) {
     const btn = document.createElement("div");
@@ -188,11 +249,9 @@ function renderTabs() {
       activeTable = t;
       localStorage.setItem(LS_TABLE, String(activeTable));
 
-      // авто-закрытие "Столы" на телефоне/узком экране
-      if (elTablesDetails && window.matchMedia("(max-width: 900px)").matches) {
-        elTablesDetails.open = false;
-        localStorage.setItem(LS_UI_TABLES_OPEN, "0");
-      }
+      // авто-закрытие "Столов" после выбора
+      elTablesDetails.open = false;
+      localStorage.setItem(LS_TABLES_OPEN, "0");
 
       renderAll();
     };
@@ -200,12 +259,9 @@ function renderTabs() {
   }
 }
 
-function renderPills() {
-  if (!elPills) return;
-  elPills.innerHTML = "";
-
-  const cats = categories();
-  for (const c of cats) {
+function renderCategoryPills() {
+  elCatPills.innerHTML = "";
+  for (const c of getAllCategories()) {
     const p = document.createElement("div");
     p.className = "pill" + (c===activeCat ? " active" : "");
     p.textContent = c;
@@ -214,32 +270,31 @@ function renderPills() {
       localStorage.setItem(LS_CAT, activeCat);
 
       // сброс подкатегории при смене категории
-      activeSub = "Все";
-      localStorage.setItem(LS_SUBCAT, activeSub);
+      activeSubCat = "Все";
+      localStorage.setItem(LS_SUBCAT, activeSubCat);
 
       renderAll();
     };
-    elPills.appendChild(p);
+    elCatPills.appendChild(p);
   }
 }
 
-function renderSubPills() {
-  if (!elSubPills) return;
+function renderSubCategoryPills() {
+  const subs = getSubCategoriesFor(activeCat);
 
-  const subs = subcategoriesFor(activeCat);
-  const hasReal = subs.length > 1; // кроме "Все"
-  elSubPills.style.display = hasReal ? "flex" : "none";
+  // если подкатегорий нет (кроме "Все"), можно скрыть бар
+  const onlyAll = subs.length === 1 && subs[0] === "Все";
+  elSubPills.style.display = onlyAll ? "none" : "flex";
+  if (onlyAll) return;
+
   elSubPills.innerHTML = "";
-
-  if (!hasReal) return;
-
-  for (const s of subs) {
+  for (const sc of subs) {
     const p = document.createElement("div");
-    p.className = "pill" + (s===activeSub ? " active" : "");
-    p.textContent = s;
+    p.className = "pill" + (sc===activeSubCat ? " active" : "");
+    p.textContent = sc;
     p.onclick = () => {
-      activeSub = s;
-      localStorage.setItem(LS_SUBCAT, activeSub);
+      activeSubCat = sc;
+      localStorage.setItem(LS_SUBCAT, activeSubCat);
       renderAll();
     };
     elSubPills.appendChild(p);
@@ -249,19 +304,19 @@ function renderSubPills() {
 function filteredMenu() {
   return menu
     .filter(m => activeCat === "Все" ? true : m.category === activeCat)
-    .filter(m => activeSub === "Все" ? true : (m.subcategory || "") === activeSub)
-    .filter(m => !searchText ? true : (m.name || "").toLowerCase().includes(searchText.toLowerCase()))
-    .sort((a,b)=> (a.name||"").localeCompare(b.name||"",'ru'));
+    .filter(m => activeSubCat === "Все" ? true : (m.subcat || "") === activeSubCat)
+    .filter(m => !searchText ? true : m.name.toLowerCase().includes(searchText.toLowerCase()))
+    .sort((a,b)=>a.name.localeCompare(b.name,'ru'));
 }
 
 function renderMenu() {
-  if (!elMenu) return;
   const map = tableOrderMap(activeTable);
   elMenu.innerHTML = "";
 
   const list = filteredMenu();
+
   if (list.length === 0) {
-    elMenu.innerHTML = `<div class="hint">Ничего не найдено</div>`;
+    elMenu.innerHTML = `<div class="hint">Пока нет позиций в этой категории.</div>`;
     return;
   }
 
@@ -272,14 +327,11 @@ function renderMenu() {
     row.className = "item";
 
     const left = document.createElement("div");
-    const metaParts = [];
-    if (item.subcategory) metaParts.push(escapeHtml(item.subcategory));
-    if (item.gram) metaParts.push(escapeHtml(item.gram));
-    metaParts.push(fmtMoney(item.price));
-
+    const sub = item.subcat ? ` • ${escapeHtml(item.subcat)}` : "";
+    const grams = item.grams ? ` • <span style="font-size:12px; opacity:.9;">${escapeHtml(item.grams)}</span>` : "";
     left.innerHTML = `
       <div style="font-weight:800;">${escapeHtml(item.name)}</div>
-      <div class="meta">${metaParts.join(" • ")}</div>
+      <div class="meta">${escapeHtml(item.category || "")}${sub}${grams} • ${num(item.price)} р</div>
       ${item.desc ? `<div class="desc">${escapeHtml(item.desc)}</div>` : ``}
     `;
 
@@ -301,20 +353,18 @@ function renderMenu() {
 }
 
 function renderOrder() {
-  if (!elOrder || !elTotals || !elTableNum) return;
-
   elTableNum.textContent = String(activeTable);
   elOrder.innerHTML = "";
-  elTotals.innerHTML = "";
 
   const map = tableOrderMap(activeTable);
   const entries = Object.entries(map)
     .map(([id, qty]) => ({ item: menu.find(m => m.id === id), qty }))
     .filter(x => x.item && x.qty > 0)
-    .sort((a, b) => (a.item.name||"").localeCompare(b.item.name||"", 'ru'));
+    .sort((a, b) => a.item.name.localeCompare(b.item.name, 'ru'));
 
   if (entries.length === 0) {
-    elOrder.innerHTML = `<div class="hint">Пока пусто. Добавляй блюда из меню слева.</div>`;
+    elOrder.innerHTML = `<div class="hint">Пока пусто. Добавляй позиции из меню.</div>`;
+    elTotals.textContent = "";
     return;
   }
 
@@ -323,24 +373,17 @@ function renderOrder() {
 
   for (const { item, qty } of entries) {
     totalQty += qty;
-
-    const unit = Number(item.price || 0);
+    const unit = num(item.price);
     const line = unit * qty;
     totalSum += line;
 
     const row = document.createElement("div");
     row.className = "item";
-
-    const metaParts = [];
-    if (item.subcategory) metaParts.push(escapeHtml(item.subcategory));
-    if (item.gram) metaParts.push(escapeHtml(item.gram));
-    metaParts.push(`${fmtMoney(unit)} × ${qty} = ${fmtMoney(line)}`);
-
+    const grams = item.grams ? ` • <span style="font-size:12px; opacity:.9;">${escapeHtml(item.grams)}</span>` : "";
     row.innerHTML = `
       <div>
         <div style="font-weight:800;">${escapeHtml(item.name)}</div>
-        <div class="meta">${metaParts.join(" • ")}</div>
-        ${item.desc ? `<div class="desc">${escapeHtml(item.desc)}</div>` : ``}
+        <div class="meta">${escapeHtml(item.category || "")}${grams} • ${unit} р × ${qty} = ${line} р</div>
       </div>
       <div class="stepper">
         <button class="small">−</button>
@@ -348,7 +391,6 @@ function renderOrder() {
         <button class="small">+</button>
       </div>
     `;
-
     const minusBtn = row.querySelectorAll("button")[0];
     const plusBtn = row.querySelectorAll("button")[1];
     minusBtn.onclick = () => adjustQty(item.id, -1);
@@ -359,21 +401,13 @@ function renderOrder() {
 
   const positions = entries.length;
   elTotals.innerHTML = `
-    <div class="card" style="margin-top:12px; padding:10px;">
-      <div style="font-weight:900; margin-bottom:6px;">ИТОГО</div>
-      <div class="hint">
-        Позиции — <b>${positions}</b><br>
-        Всего — <b>${totalQty}</b><br>
-        Сумма — <b>${fmtMoney(totalSum)}</b>
-      </div>
+    <div style="margin-top:12px; padding-top:10px; border-top:1px solid #243244; font-size:15px; font-weight:900;">
+      ИТОГО:<br>
+      Позиции — ${positions}<br>
+      Всего — ${totalQty}<br>
+      Сумма — ${totalSum} р
     </div>
   `;
-}
-
-function renderStatus() {
-  if (!elStatus) return;
-  const online = navigator.onLine ? "онлайн" : "офлайн";
-  elStatus.textContent = `Сейчас: ${online}`;
 }
 
 function renderHistory() {
@@ -384,15 +418,11 @@ function renderHistory() {
     return;
   }
 
-  const items = [...history].slice(-80).reverse();
+  const items = [...history].slice(-50).reverse();
   elHistoryList.innerHTML = items.map(h => {
-    const lines = (h.items || []).map(it => {
-      const name = escapeHtml(it.name);
-      const qty = Number(it.qty || 0);
-      const price = Number(it.price || 0);
-      const gram = it.gram ? ` • ${escapeHtml(it.gram)}` : "";
-      return `${name}${gram} — ${qty} шт • ${fmtMoney(price)}`;
-    }).join("<br>");
+    const lines = (h.items || []).map(it =>
+      `${escapeHtml(it.name)} — ${it.qty} шт • ${it.price} р`
+    ).join("<br>");
 
     return `
       <div class="card" style="margin:8px 0; padding:10px;">
@@ -400,10 +430,10 @@ function renderHistory() {
           <div>Стол ${h.table}</div>
           <div style="opacity:.8; font-weight:700;">${fmtDT(h.ts)}</div>
         </div>
-        <div class="hint" style="margin-top:6px;">
-          Позиции: <b>${h.positions}</b> • Штук: <b>${h.totalQty}</b> • Сумма: <b>${fmtMoney(h.totalSum)}</b>
+        <div style="margin-top:6px; opacity:.9;">
+          Позиции: ${h.positions} • Штук: ${h.totalQty} • Сумма: ${h.totalSum} р
         </div>
-        <div style="margin-top:8px; line-height:1.35;">
+        <div style="margin-top:8px; opacity:.95; line-height:1.35;">
           ${lines || "<span class='hint'>Пусто</span>"}
         </div>
       </div>
@@ -411,8 +441,45 @@ function renderHistory() {
   }).join("");
 }
 
-function buildReceiptForTable(tableNum) {
-  const map = tableOrderMap(tableNum);
+function renderAll() {
+  renderStatus();
+  renderTabs();
+  renderCategoryPills();
+  renderSubCategoryPills();
+  renderMenu();
+  renderOrder();
+  renderHistory();
+}
+
+/* ===== Events ===== */
+elSearch.value = searchText;
+
+elSearch.addEventListener("input", (e) => {
+  searchText = e.target.value || "";
+  localStorage.setItem(LS_SEARCH, searchText);
+  renderMenu();
+});
+
+elClear.onclick = () => {
+  if (!confirm(`Очистить заказ для стола ${activeTable}?`)) return;
+  orders[String(activeTable)] = {};
+  saveOrders(orders);
+  renderAll();
+};
+
+elClose.onclick = () => {
+  const counts = tableCounts(activeTable);
+  if (counts.totalQty === 0) {
+    alert("Стол и так пустой");
+    return;
+  }
+  if (!confirm(
+    `Закрыть стол ${activeTable}?\n` +
+    `Позиций: ${counts.positions}\n` +
+    `Всего: ${counts.totalQty}`
+  )) return;
+
+  const map = tableOrderMap(activeTable);
   const entries = Object.entries(map)
     .map(([id, qty]) => ({ item: menu.find(m => m.id === id), qty }))
     .filter(x => x.item && x.qty > 0);
@@ -422,355 +489,181 @@ function buildReceiptForTable(tableNum) {
 
   const items = entries.map(({ item, qty }) => {
     totalQty += qty;
-    const price = Number(item.price || 0);
+    const price = num(item.price);
     totalSum += price * qty;
-    return {
-      name: item.name,
-      qty,
-      price,
-      gram: item.gram || "",
-      desc: item.desc || "",
-      category: item.category || "",
-      subcategory: item.subcategory || "",
-    };
+    return { name: item.name, qty, price };
   });
 
-  return {
+  history.push({
     ts: Date.now(),
-    table: tableNum,
+    table: activeTable,
     positions: items.length,
     totalQty,
     totalSum,
     items
+  });
+
+  saveHistory(history);
+
+  orders[String(activeTable)] = {};
+  saveOrders(orders);
+  renderAll();
+};
+
+if (elClearHistory) {
+  elClearHistory.onclick = () => {
+    if (!confirm("Очистить всю историю закрытий?")) return;
+    history = [];
+    saveHistory(history);
+    renderHistory();
   };
 }
 
-function renderAdmin() {
-  if (!elAdminList) return;
-  elAdminList.innerHTML = "";
-
-  const list = [...menu].sort((a,b)=>
-    (a.category||"").localeCompare(b.category||"",'ru') ||
-    (a.subcategory||"").localeCompare(b.subcategory||"",'ru') ||
-    (a.name||"").localeCompare(b.name||"",'ru')
-  );
-
-  for (const item of list) {
-    const row = document.createElement("div");
-    row.className = "item";
-
-    const metaParts = [];
-    if (item.category) metaParts.push(escapeHtml(item.category));
-    if (item.subcategory) metaParts.push(escapeHtml(item.subcategory));
-    if (item.gram) metaParts.push(escapeHtml(item.gram));
-    metaParts.push(fmtMoney(item.price));
-
-    row.innerHTML = `
-      <div>
-        <div style="font-weight:800;">${escapeHtml(item.name)}</div>
-        <div class="meta">${metaParts.join(" • ")}</div>
-        ${item.desc ? `<div class="desc">${escapeHtml(item.desc)}</div>` : ``}
-      </div>
-      <button class="danger small">Удалить</button>
-    `;
-
-    row.querySelector("button").onclick = () => {
-      if (!confirm(`Удалить "${item.name}"?`)) return;
-
-      // удалить из меню
-      menu = menu.filter(m => m.id !== item.id);
-      saveMenu(menu);
-
-      // удалить из всех заказов
-      for (let t=1; t<=10; t++) {
-        const map = tableOrderMap(t);
-        if (map[item.id] != null) {
-          delete map[item.id];
-          orders[String(t)] = map;
-        }
-      }
-      saveOrders(orders);
-
-      // если категории/подкатегории пропали — сбросим фильтры
-      if (!categories().includes(activeCat)) activeCat = "Все";
-      localStorage.setItem(LS_CAT, activeCat);
-
-      activeSub = "Все";
-      localStorage.setItem(LS_SUBCAT, activeSub);
-
-      renderAll();
-    };
-
-    elAdminList.appendChild(row);
-  }
+if (elExportHistory) {
+  elExportHistory.onclick = () => {
+    const data = JSON.stringify(history, null, 2);
+    const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "history.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 }
 
-function renderAll() {
-  renderStatus();
-  renderTabs();
-  renderPills();
-  renderSubPills();
-  renderMenu();
-  renderOrder();
-  renderHistory();
-  renderAdmin();
-}
+/* ===== Импорт из текста (если нужно) =====
+   Формат:
+   Категория:
+   Подкатегория = Кофе
+   Эспрессо | 30мл | описание... | 5р
+*/
+function parseImportText(text) {
+  const lines = String(text).replace(/\r/g,"").split("\n").map(l=>l.trim()).filter(Boolean);
+  let cat = "";
+  let sub = "";
 
-/* ====== IMPORT PARSER (category: , [subcategory], item lines) ====== */
-function parseMenuText(text) {
-  const lines = String(text || "")
-    .replace(/\r/g, "")
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean);
-
-  let currentCategory = "Без категории";
-  let currentSub = "";
-
-  const items = [];
+  const outCats = new Set(categoriesList);
+  const outMenu = [];
 
   for (const raw of lines) {
-    // "Категория:"
-    const catColon = raw.match(/^(.+):$/);
-    if (catColon) {
-      currentCategory = catColon[1].trim() || currentCategory;
-      currentSub = "";
+    const catMatch = raw.match(/^(.+):$/);
+    if (catMatch) {
+      cat = catMatch[1].trim();
+      sub = "";
+      if (cat) outCats.add(cat);
       continue;
     }
 
-    // "[Подкатегория]"
-    const subBr = raw.match(/^\[(.+)\]$/);
-    if (subBr) {
-      currentSub = subBr[1].trim() || "";
+    const subMatch = raw.match(/^Подкатегория\s*=\s*(.+)$/i);
+    if (subMatch) {
+      sub = subMatch[1].trim();
       continue;
     }
 
-    // Позиция: "Название 350 300мл | описание"
-    // цена — обязательна (последняя цифра-группа)
-    const priceMatch = raw.match(/(\d+)\s*(?:₽|р|руб)?\s*/i);
-    if (!priceMatch) continue;
-
-    // Берем ПЕРВУЮ цену как price (так надёжнее)
-    const price = Number(priceMatch[1]);
-
-    // Отделяем описание через "|"
+    // позиция: name | grams | desc | price
     const parts = raw.split("|").map(x => x.trim());
-    const left = parts[0] || raw;
-    const desc = parts[1] ? parts.slice(1).join(" | ") : "";
-
-    // Из left вытащим граммовку (мл/г/гр/л) — если есть
-    // например: "Манго 350 300мл" / "Борщ 250 350 г"
-    let gram = "";
-    const gramMatch = left.match(/(\d+(?:\.\d+)?)\s*(мл|ml|г|гр|kg|кг|л|l)\b/i);
-    if (gramMatch) gram = `${gramMatch[1]} ${gramMatch[2]}`.replace("ml","мл").replace("l","л");
-
-    // Название: уберём цену и граммовку
-    let name = left
-      .replace(/\|.*/g, "")
-      .replace(/(\d+)\s*(?:₽|р|руб)?/i, "") // убираем первую цену
-      .replace(/(\d+(?:\.\d+)?)\s*(мл|ml|г|гр|kg|кг|л|l)\b/i, "") // убираем граммовку
-      .replace(/[-–—:]+/g, " ")
-      .trim();
-
+    const name = parts[0] || "";
     if (!name) continue;
 
-    items.push({
+    const grams = parts[1] || "";
+    const desc  = parts[2] || "";
+    let priceStr = parts[3] || "";
+    priceStr = priceStr.replace(/[^\d]/g, "");
+    const price = num(priceStr);
+
+    outMenu.push({
       id: uuid(),
       name,
-      category: currentCategory,
-      subcategory: currentSub,
-      price: Number.isFinite(price) ? price : 0,
-      gram,
-      desc
+      category: cat || "Без категории",
+      subcat: sub || "",
+      grams,
+      desc,
+      price
     });
+
+    outCats.add(cat || "Без категории");
   }
 
-  return items;
+  return { cats: Array.from(outCats), menu: outMenu };
 }
 
-function mergeMenuItems(newItems) {
-  const key = (x) => `${(x.category||"").toLowerCase()}||${(x.subcategory||"").toLowerCase()}||${(x.name||"").toLowerCase()}`;
-  const existing = new Map(menu.map(m => [key(m), m]));
+if (elImportReplace) {
+  elImportReplace.onclick = () => {
+    const text = (elBulk.value || "").trim();
+    if (!text) return alert("Вставь текст меню");
 
-  for (const it of newItems) {
-    const k = key(it);
-    if (existing.has(k)) {
-      const old = existing.get(k);
-      // обновляем данные
-      if ((it.price ?? 0) !== 0) old.price = it.price;
-      if (it.gram) old.gram = it.gram;
-      if (it.desc) old.desc = it.desc;
-    } else {
-      menu.push(it);
-      existing.set(k, it);
-    }
-  }
-}
+    if (!confirm("Заменить текущее меню на импортированное?")) return;
 
-/* ====== EVENTS ====== */
-elSearch?.addEventListener("input", (e) => {
-  searchText = e.target.value || "";
-  renderMenu();
-});
+    const parsed = parseImportText(text);
+    categoriesList = parsed.cats.sort((a,b)=>a.localeCompare(b,'ru'));
+    menu = parsed.menu;
 
-elClear?.addEventListener("click", () => {
-  if (!confirm(`Очистить заказ для стола ${activeTable}?`)) return;
-  orders[String(activeTable)] = {};
-  saveOrders(orders);
-  renderAll();
-});
+    saveCategories(categoriesList);
+    saveMenu(menu);
 
-elClose?.addEventListener("click", () => {
-  const counts = tableCounts(activeTable);
-  if (counts.totalQty === 0) {
-    alert("Стол и так пустой");
-    return;
-  }
+    // очистим заказы (на всякий)
+    const init = {};
+    for (let t=1; t<=10; t++) init[String(t)] = {};
+    orders = init;
+    saveOrders(orders);
 
-  // Собираем чек, чтобы в confirm была сумма
-  const receipt = buildReceiptForTable(activeTable);
+    activeCat = "Все";
+    activeSubCat = "Все";
+    searchText = "";
 
-  if (!confirm(
-    `Закрыть стол ${activeTable}?\n` +
-    `Позиций: ${receipt.positions}\n` +
-    `Всего штук: ${receipt.totalQty}\n` +
-    `Сумма: ${fmtMoney(receipt.totalSum)}`
-  )) return;
+    localStorage.setItem(LS_CAT, activeCat);
+    localStorage.setItem(LS_SUBCAT, activeSubCat);
+    localStorage.setItem(LS_SEARCH, searchText);
 
-  history.push(receipt);
-  saveHistory(history);
+    elSearch.value = "";
+    elBulk.value = "";
 
-  orders[String(activeTable)] = {};
-  saveOrders(orders);
-
-  renderAll();
-});
-
-elExportHistory?.addEventListener("click", () => {
-  const data = {
-    exportedAt: new Date().toISOString(),
-    history
+    renderAll();
+    alert(`Готово: ${menu.length} позиций.`);
   };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+}
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `waiter-history-${Date.now()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+if (elResetAll) {
+  elResetAll.onclick = () => {
+    if (!confirm("Сбросить всё (меню, заказы, историю, категории)?")) return;
 
-  URL.revokeObjectURL(url);
-});
+    categoriesList = [...DEFAULT_CATEGORIES];
+    menu = [];
+    history = [];
 
-elClearHistory?.addEventListener("click", () => {
-  if (!confirm("Очистить историю закрытий?")) return;
-  history = [];
-  saveHistory(history);
-  renderHistory();
-});
+    saveCategories(categoriesList);
+    saveMenu(menu);
+    saveHistory(history);
 
-elAddItem?.addEventListener("click", () => {
-  const name = (elNewName?.value || "").trim();
-  const cat = (elNewCat?.value || "").trim();
-  const sub = (elNewSub?.value || "").trim();
-  const price = Number((elNewPrice?.value || "").trim());
-  const gram = (elNewGram?.value || "").trim();
-  const desc = (elNewDesc?.value || "").trim();
+    const init = {};
+    for (let t=1; t<=10; t++) init[String(t)] = {};
+    orders = init;
+    saveOrders(orders);
 
-  if (!name) return alert("Введите название");
-  if (!cat) return alert("Введите категорию");
-  if (!Number.isFinite(price) || price < 0) return alert("Введите корректную цену (например 350)");
+    activeCat = "Все";
+    activeSubCat = "Все";
+    searchText = "";
 
-  menu.push({ id: uuid(), name, category: cat, subcategory: sub, price, gram, desc });
-  saveMenu(menu);
+    localStorage.setItem(LS_CAT, activeCat);
+    localStorage.setItem(LS_SUBCAT, activeSubCat);
+    localStorage.setItem(LS_SEARCH, searchText);
 
-  elNewName.value = "";
-  elNewCat.value = "";
-  elNewSub.value = "";
-  elNewPrice.value = "";
-  elNewGram.value = "";
-  elNewDesc.value = "";
+    elSearch.value = "";
+    if (elBulk) elBulk.value = "";
 
-  renderAll();
-});
+    renderAll();
+  };
+}
 
-elImport?.addEventListener("click", () => {
-  const text = (elBulk?.value || "").trim();
-  if (!text) return alert("Вставь текст меню");
-
-  const newItems = parseMenuText(text);
-  if (newItems.length === 0) return alert("Не нашёл блюд в тексте. Проверь формат.");
-
-  mergeMenuItems(newItems);
-  saveMenu(menu);
-
-  elBulk.value = "";
-  activeCat = "Все";
-  activeSub = "Все";
-  localStorage.setItem(LS_CAT, activeCat);
-  localStorage.setItem(LS_SUBCAT, activeSub);
-
-  renderAll();
-  alert(`Импортировано: ${newItems.length} строк(и).`);
-});
-
-elImportReplace?.addEventListener("click", () => {
-  const text = (elBulk?.value || "").trim();
-  if (!text) return alert("Вставь текст меню");
-
-  const newItems = parseMenuText(text);
-  if (newItems.length === 0) return alert("Не нашёл блюд в тексте. Проверь формат.");
-
-  if (!confirm("Заменить текущее меню на импортированное?")) return;
-
-  menu = newItems;
-  saveMenu(menu);
-
-  // очистим заказы
-  const init = {};
-  for (let t=1; t<=10; t++) init[String(t)] = {};
-  orders = init;
-  saveOrders(orders);
-
-  elBulk.value = "";
-  activeCat = "Все";
-  activeSub = "Все";
-  localStorage.setItem(LS_CAT, activeCat);
-  localStorage.setItem(LS_SUBCAT, activeSub);
-
-  renderAll();
-  alert(`Новое меню: ${newItems.length} блюд.`);
-});
-
-elResetMenu?.addEventListener("click", () => {
-  if (!confirm("Сбросить меню на стандартное?")) return;
-
-  menu = [...DEFAULT_MENU].map(x => ({...x, id: uuid()}));
-  saveMenu(menu);
-
-  const init = {};
-  for (let t=1; t<=10; t++) init[String(t)] = {};
-  orders = init;
-  saveOrders(orders);
-
-  activeCat = "Все";
-  activeSub = "Все";
-  localStorage.setItem(LS_CAT, activeCat);
-  localStorage.setItem(LS_SUBCAT, activeSub);
-
-  renderAll();
-});
-
-/* PWA: Service Worker */
+/* PWA */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   });
 }
 
-window.addEventListener("online", () => renderStatus());
-window.addEventListener("offline", () => renderStatus());
+window.addEventListener("online", renderStatus);
+window.addEventListener("offline", renderStatus);
 
+/* старт */
 renderAll();
