@@ -1,762 +1,258 @@
 /***********************
- * СОСТОЯНИЕ + ХРАНЕНИЕ
+ * НАСТРОЙКИ
+ ***********************/
+const TABLES_COUNT = 10;
+const STORAGE_KEY = 'waiter_pwa_state_v1';
+
+/***********************
+ * СОСТОЯНИЕ
  ***********************/
 let state = {
-  tables: safeJsonParse(localStorage.getItem("tables"), {}),
-  currentTable: localStorage.getItem("currentTable") || null,
-  history: safeJsonParse(localStorage.getItem("history"), [])
+  table: 1,
+  orders: {},        // { tableNum: { itemId: qty } }
+  history: [],
+  menu: [],
+  category: '',
+  subCategory: '',
+  search: ''
 };
 
-function safeJsonParse(raw, fallback){
-  try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
-}
+/***********************
+ * УТИЛИТЫ
+ ***********************/
+const $ = id => document.getElementById(id);
 
-function saveState(){
-  localStorage.setItem("tables", JSON.stringify(state.tables));
-  localStorage.setItem("history", JSON.stringify(state.history));
-  localStorage.setItem("currentTable", state.currentTable || "");
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function loadState() {
+  const s = localStorage.getItem(STORAGE_KEY);
+  if (s) Object.assign(state, JSON.parse(s));
 }
 
 /***********************
- * МЕНЮ — ВЕСЬ ТВОЙ ТЕКСТ
+ * ПАРСЕР МЕНЮ
  ***********************/
-const MENU_TEXT = `
-Закуски:
-
-Мясная тарелка 35 320г | Ветчина к/в, вырезка с/в, говядина с/в, салями, корнишоны, горчица
-Фруктовая тарелка 26 600г | Апельсин, банан, груша, киви, грейпфрут
-
-Напитки:
-
-[Напитки и соки]
-Бёрн 10 250мл
-Кока-кола, Швепс Индиан тоник, Спрайт 5 330мл | Coca-cola, Schweppes indian tonic, Sprite
-Кока-кола зеро 5 330мл
-Бонаква 5 500мл | Негазированная, газированная
-Сок Rich в ассортименте 5 250мл | Апельсиновый, грейпфрутовый, ананасовый, яблочный, томатный, виноградный, вишнёвый, клюквенный, персиковый
-
-[Смузи]
-Киви-клубнично-банановый 8 300мл | Киви, клубника, банан
-Малиново-банановый 8 300мл | Банан, малиновое пюре
-
-[Лимонады]
-Дынный 8 300мл | Ананасовый сок, лимонный сок, дынный сироп, сироп Блю Кюрасао, содовая
-Дынный 16 1000мл | Ананасовый сок, лимонный сок, дынный сироп, сироп Блю Кюрасао, содовая
-Смородиновый 8 300мл | Вишнёвый сок, смородиновый сироп, содовая
-Смородиновый 16 1000мл | Вишнёвый сок, смородиновый сироп, содовая
-Цитрус-бузина 8 300мл | Грейпфрутовый сок, апельсиновый сок, сироп бузины, сок лимона, содовая
-Цитрус-бузина 16 1000мл | Грейпфрутовый сок, апельсиновый сок, сироп бузины, сок лимона, содовая
-Имбирный 8 300мл | Яблочный сок, имбирный сироп, кленовый сироп, лимонный сок, содовая
-Имбирный 16 1000мл | Яблочный сок, имбирный сироп, кленовый сироп, лимонный сок, содовая
-Барбарисовый 8 300мл | Клюквенный морс, клубничный сироп, лимонный сок, содовая
-Барбарисовый 16 1000мл | Клюквенный морс, клубничный сироп, лимонный сок, содовая
-Лавандовый 8 300мл | Яблочный сок, лавандовый сироп, лимонный сок, содовая
-Лавандовый 16 1000мл | Яблочный сок, лавандовый сироп, лимонный сок, содовая
-Огуречный 8 300мл | Огуречный кордиал, лимонный сок, содовая
-Огуречный 16 1000мл | Огуречный кордиал, лимонный сок, содовая
-Персик-банан 8 300мл | Персиковый нектар, сироп зелёный банан, лимонный сок, содовая
-Персик-банан 16 1000мл | Персиковый нектар, сироп зелёный банан, лимонный сок, содовая
-
-[Милкшейки]
-Банановый 9 300мл | Молоко, пломбир, взбитые сливки, банан, сахарный сироп
-Клубнично-вишнёвый 9 300мл | Молоко, пломбир, взбитые сливки, клубника, вишня, вишнёвый сок
-Сникерс 9 300мл | Молоко, сливки, пломбир, арахис, шоколад, солёная карамель
-
-Десерты:
-
-Айс бэнг 11 150г | Ванильное мороженое, апельсин, банан, джус-боллы, мята
-Торт "Медовик" 11 141г
-Чизкейк "Нью-Йорк" 11 110г
-Торт «Захер» 11 112г
-Ванильное мороженое 9 120г | Ванильный пломбир, вафельные трубочки, коктейльная вишня, шоколадный/карамельный топпинг
-
-Коктейли и твист:
-
-[Безалкогольные]
-Пина колада 15 250мл | Кокос, ананасовый сок, сливки, сахарный сироп
-Порнстар мартини 15 125мл | Пюре маракуйи, ананасовый кордиал, безалкогольное игристое
-Мохито 12 250мл | Мята, лайм, сахарный сироп, содовая
-Секс на пляже 12 250мл | Ананасовый сок, апельсиновый сок, персиковый сок, клюквенный морс, гренадин
-Сангрита 12 300мл | Томатный и апельсиновый соки, сок лайма, соль, перец, табаско
-
-[Классические]
-Лонг-Айленд 26 300мл | Водка, джин, текила, ром, апельсиновый ликёр, лимон, Coca-Cola
-Негрони 20 90мл | Джин, горький ликёр Кампари, красный вермут
-Порнстар мартини 20 125мл | Ванильная водка, пюре маракуйи, сок лимона, игристое
-Сухой мартини 19 90мл | Сухой джин, сухой вермут
-Брамбл 19 150мл | Джин, ежевичный ликёр, лимонный сок, сахарный сироп
-Клубничная палома 19 200мл | Клубничная текила, грейпфрутовый сок, лаймовый кордиал
-Кловер клаб 19 120мл | Джин, малиновое пюре, лимонный сок
-Мохито 19 250мл | Ром, лайм, мята, сахарный сироп, содовая
-Кровавая мэри 19 170мл | Водка, томатный сок, мёд, табаско, специи, лимонный сок
-Ромовый пунш 19 170мл | Ром, апельсиновый и ананасовый соки, ягодный сироп, биттеры, лимонный кордиал
-Нью-Йорк сауэр 19 120мл | Бурбон, красное вино, лимонный сок, сахарный сироп
-Виски сауэр 19 100мл | Виски, лимонный сок, сахарный сироп
-Куба либре 19 200мл | Пряный ром, лайм, Coca-Cola
-Френч 75 19 140мл | Джин, лимонный сок, сахарный сироп, игристое вино
-Белый русский 19 90мл | Водка, кофейный ликёр, сливки
-Эспрессо мартини 19 100мл | Водка, кофейный ликёр, эспрессо
-Дайкири 19 90мл | Ром, сок лайма, сахарный сироп
-Маргарита 19 90мл | Текила, апельсиновый ликёр, сок лайма
-Олд фэшн 19 80мл | Бурбон, сахарный сироп, биттер ангостура
-Крестный отец 19 75мл | Виски, миндальный ликёр
-
-[Авторские и твист]
-Между простынями 19 200мл | Фирменный цитрусовый ликёр с добавлением пюре из маракуйи и ананасового кордиала
-Спасибо за прошлый раз 19 200мл | Шотландский виски, сироп "Яблочный пирог", сок лимона, содовая
-Амнезия 19 150мл | Джин, облепиховая настойка, клюква, розмарин, лимонный сок
-Морозко 19 200мл | Ром, сливочный ликёр, эспрессо, кофейный ликёр, пломбир
-Баунти 19 150мл | Кофейный арарат, калуа, сливки, кокос
-Сердцеедка 19 100мл | Текила, джин, базилик, кленовый сироп, карамельный сироп, апельсиновый кордиал
-Мальвина 19 200мл | Водка, груша, сироп Блю Кюрасао, лимонный сок
-Вельвет вайлет 19 150мл | Джин, зелёное вино, лавандовый кордиал, содовая
-Чери чери леди 19 120мл | Ром, джем из белой черешни, вишнёвый сок, лимонный сок
-Мисс грейпс 19 250мл | Джин, виноградный сок, горький ликёр, лимонный кордиал, тоник
-Всё и сразу 19 150мл | Ром, банановый ликёр, дыня, лимонный биттер, лимон
-Коко палома 19 200мл | Текила, грейпфрутовый сок, кокосовый сироп, сок лайма
-Тайская проститутка 19 170мл | Такой же сладкий и жгучий как она
-Май тай 19 200мл | Ром, апельсиновый ликёр, ананасовый сок, миндаль, лайм
-
-[Горячие]
-Летняя груша 10 200мл | Ананасовое вино, груша, корица, гвоздика, мята, мёд, мятный биттер
-Абрикот 10 250мл | Абрикосовый коньяк, грушевое пюре, сок лайма, те гуань инь
-Классический глинтвейн 10 180мл | Красное вино, корица, анис, гвоздика, апельсин, мёд
-Белый глинтвейн 10 180мл | Белое вино, мёд, карамель, грейпфрут, гвоздика, корица
-Мандариновый глинтвейн с малиной 10 180мл | Мандариновое вино, малина, корица, мёд, бадьян, сахар
-
-Микс дринк:
-
-Джин&тоник 13 200мл
-Виски&кола 13 200мл
-Ром&кола 13 200мл
-Водка&сок 13 200мл
-
-Фирменные наливки:
-
-На чиле 6 40мл
-Буйная облепиха 6 40мл
-Авторитетная черника 6 40мл
-Клюква в законе 6 40мл
-Дерзкая смородина 6 40мл
-Пьяная вишня 6 40мл
-Фраерский лимон 6 40мл
-
-Шоты:
-
-Б-52 10 50мл | Кофейный ликёр, сливочный ликёр, апельсиновый ликёр
-Зелёный мексиканец 10 50мл | Текила, сироп зелёный банан, сок лайма
-Блэкбери шот 10 50мл | Ежевичный ликёр, светлый ром, ежевика
-Боярский 10 50мл | Водка, сироп гренадин, табаско
-Шторм 10 50мл | Сироп гренадин, миндальный ликёр, светлый ром, сливочный ликёр
-
-[Сеты шотов]
-Нью-Йорк шот 36 | Виски, красное вино, лимонный сок, сахарный сироп
-Брамблберри 36 | Джин, ежевичный ликёр, лимонный сок, сахарный сироп
-Настоятельный сет 36 | Фирменные наливки: клюквенная, вишнёвая, черничная, облепиховая, лимонная, смородиновая
-Берри микс 36 | Клюква-розмарин, клубника-базилик, малина-апельсин
-Голубой камикадзе 36 | Водка, апельсиновый ликёр, сок лимона, сироп Блю Кюрасао
-Кислые червячки 36 | Настойка на желейных мармеладках
-Экзотик 36 | Светлый ром, апельсиновый кордиал, кокос
-Скитлз 36 | Настойка на конфетах скитлз с цитрусовыми
-
-К пиву:
-
-Фисташки 9 70г
-Арахис 6 70г
-
-Алкоголь:
-
-[Пиво]
-Вишнёвый сидр 12 500мл
-Шоколадный стаут 10 450мл
-Крушовица светлая 10 450мл
-Крушовица тёмная 10 450мл
-Крушовица безалкогольная 8 330мл
-
-[Виски шотландский]
-Гленфиддик 12 15 40мл
-Гленливет 12 y.o 14 40мл
-Чивас ригал 12 лет 14 40мл
-Окентошан оак 14 40мл
-Рэд лэйбл 13 40мл
-Паспорт скотч 11 40мл
-
-[Виски ирландский]
-Талламор дью 12 y.o 13 40мл
-Джеймсон 3 года 13 40мл
-
-[Виски американский]
-Джентельмен джек 14 40мл
-Джек дэниэлс №7 13 40мл
-Джим бим 13 40мл
-Джек дэниэлс медовый 13 40мл
-
-[Ром]
-Бакарди спайсд 11 40мл
-Гавана клаб эспесиаль 11 40мл
-Гавана клаб 3 года 11 40мл
-Гавана клаб спайсд 11 40мл
-
-[Водка]
-Финляндия 11 40мл
-Финляндия клюквенная 11 40мл
-Абсолют 11 40мл
-Шмидт 8 40мл
-
-[Текила]
-Ольмека альтос плата 13 40мл
-Уроборос сильвер 11 40мл
-Сиерра 11 40мл
-
-[Джин]
-Танкерей №10 12 40мл
-Бикенс 10 40мл
-Барристер 9 40мл
-
-[Ликёры]
-Егермейстер 12 40мл
-Бехеровка 10 40мл
-
-[Коньяк]
-Арарат абрикос 10 40мл
-Арарат кофейный 10 40мл
-Арарат ани 10 40мл
-
-[Вермуты]
-Мартини россо 8 40мл
-Мартини бьянко 8 40мл
-Мартини экстра драй 8 40мл
-Мартини фиеро 8 40мл
-Мартини розато 8 40мл
-
-[Вина]
-Красное вино с мандарином 8 125мл
-Белое вино с ананасом 8 125мл
-Красное вино со смородиной 8 125мл
-Гиоргия пино гриджио терре сикилиайн 10 125мл | Италия, сухое
-Гиоргия пино гриджио терре сикилиайн 54 750мл | Италия, сухое
-Габия вино верде док лурейро 10 125мл | Португалия, сухое
-Габия вино верде док лурейро 54 750мл | Португалия, сухое
-Гевюрцтраминер квалитацвайн пфальц 10 125мл | Германия, полусухое
-Гевюрцтраминер квалитацвайн пфальц 54 750мл | Германия, полусухое
-Чилано карменере 10 125мл | Чили, сухое
-Чилано карменере 54 750мл | Чили, сухое
-Гиоргия примитиво 10 125мл | Италия, п/сух
-Гиоргия примитиво 54 750мл | Италия, п/сух
-Гиоргия сангиовесе 10 125мл | Италия, сух
-Гиоргия сангиовесе 54 750мл | Италия, сух
-Триа нерелло маскалезе розато терре сицилиан 10 125мл | Италия, полусухое
-Триа нерелло маскалезе розато терре сицилиан 54 750мл | Италия, полусухое
-Коль мезиан просекко экстра сухое 54 0,75л | Италия
-Орлен кава до брют 54 0,75л | Испания
-
-Чай:
-
-[Чайные напитки]
-Имбирный чай с мёдом и лимоном 14 800мл
-Мандариновый чай со смородиной 14 800мл
-Маракуйя-ананас 14 800мл
-Облепиховый чай с розмарином и ягодами 14 800мл
-Лесной дрем 14 800мл
-Манго-цитрус 14 800мл
-Molly дыня 14 800мл
-Вишня-чили 14 800мл
-Дюшес с кокосом и персиком 14 800мл
-
-[Листовой чай]
-Манговый коктейль 11 800мл
-Персиковый улун 11 800мл
-Молочный улун 11 800мл
-Жасминовый улун 11 800мл
-Те гуань инь 11 800мл
-Легенда англии 11 800мл
-Спелый барбарис 11 800мл
-Чёрный император 11 800мл
-Айва с персиком 11 800мл
-Таёжный 11 800мл
-Масала с молоком и мёдом 11 800мл
-Чёрный с чабрецом 11 800мл
-Дворцовый пуэр 11 800мл
-Вишнёвый пуэр 11 800мл
-
-Бабл-напитки:
-
-Жасминовый бабл-чай 10 350мл
-Клубничный бабл-чай 10 350мл
-Латте-шоколад 10 350мл
-
-Кофе:
-
-Раф 7 200мл
-Латте 6 200мл
-Капучино 6 125мл
-Эспрессо 5 30мл
-Американо 5 100мл
-
-[Кофейные напитки]
-Эспрессо тоник 9 300мл
-Айс латте 9 300мл
-Шмель 9 300мл
-Халвичный раф 9 300мл
-Какао с шоколадом 9 300мл
-
-Бутылочка с собой:
-
-Медовая граната 70 500мл
-Кислые червячки 70 500мл
-Тархун 70 500мл
-
-Поляна:
-
-[Бургеры]
-Чизбургер Polyana 19 300г | Котлета из 100% говядины, сыр чеддер, маринованные огурцы, жареный сыр, фирменный соус (YumYum)
-Smoked Jonny 27 350г | Рваная говядина, жареный сыр, сливочное масло с чили, грибы, фирменный соус (Polyana), карамелизованный лук, chipotle болгарский перец
-Bossburger 35 490г | Две котлеты из 100% говядины, сыр чеддер, жареный сыр, грибы, маринованные огурцы, зелень, фирменный соус (Polyana)
-Polyana чикенбургер 18 360г | Сочная курица, жареный сыр, петрушка, жареные помидоры, рукола, карамелизованный лук, фирменный соус (Polyana)
-Чилли бургер 21 310г | Котлета из 100% говядины, жареный сыр, грибы, сливочное масло с чили, маринованные огурцы, томатный соус, фирменный соус (Polyana)
-Чилли бедрышки 19 350г | Сочные куриные бедрышки, жареный сыр, маринованные огурцы, грибы, фирменный соус (Polyana), сливочное масло с чили, чиабатта
-Spicy чикенбургер 18 360г | Сочная курица, жареный сыр, сливочное масло с чили, маринованные огурцы, болгарский перец, томатный соус
-Фалафель бургер 18 300г | 100% вегбургер, жареный сыр, помидоры, зелень, петрушка, фирменный соус (Polyana)
-Buffalo чикенбургер 18 360г | Сочная курица, жареный сыр, свежие огурцы, зелень, петрушка, болгарский перец, карамелизованный лук, фирменный соус (Polyana)
-Panko чикенбургер 18 360г | Сочная курица, жареный сыр, свежие огурцы, зелень, рукола, фирменный соус (Polyana Cheese Sauce)
-Болгоги бургер 20 320г | Котлета из 100% говядины, жареный сыр, свежий огурец, зелень рукола, петрушка, болгарский перец, фирменный соус (Polyana)
-Хасбургер 22 320г | Котлета из 100% говядины, жареный сыр, сарделя из говядины, маринованные огурцы, фирменный соус (YumYum), фирменный соус (Honey Mustard)
-Балтазар 20 330г | Котлета из 100% говядины, жареный сыр, помидоры, рукола, фирменный соус (Polyana)
-Петрушбургер 20 300г | Котлета из 100% говядины, жареный сыр, маринованные огурцы, петрушка, фирменный соус (Polyana)
-Smoky Jam 26 330г | Котлета из 100% говядины, сыр чеддер, фирменный соус (Polyana), маринованные огурцы, жареный сыр, соус барбекю, сливочное масло с чили, копчёная говядина
-Фандидо бургер 27 380г | Котлета из 100% говядины, фирменный соус (Polyana), маринованные огурцы, жареный сыр, яйцо, соус барбекю, томатный соус, копчёная говядина
-Mexican burger 35 530г | Две котлеты из 100% говядины, два жареных сыра, маринованные огурцы, грибы, сливочное масло с чили, фирменный соус (Polyana), chipotle, халапеньо
-Miodowa чикенбургер 18 360г | Сочная курица, жареный сыр, карамелизованный лук, болгарский перец, свежие огурцы, фирменный соус (Honey Mustard)
-Hawaiian чикенбургер 19 360г | Сочная курица, сыр чеддер, мята, ананас, фирменный соус (Honey Mustard), соус (Mango Chili)
-Smoky Kelven 26 350г | Котлета из 100% говядины, сыр чеддер, рваная говядина, chipotle, фирменный соус (Polyana), маринованные огурцы, жареный сыр, карамелизованный лук, сливочное масло с чили
-
-[Фри и сайды]
-Картофель фри 8 100г
-Батат фри 10 100г
-Креветки 24 150г
-Стрипсы Polyana 15 170г
-Фалафель 12 150г
-Наггетсы 12 150г
-
-[Супы]
-Суп чечевичный 12 250г
-
-[Соусы]
-Polyana 3 50г
-Cheese sauce 3 50г
-Yum Yum 3 50г
-Honey Mustard 3 50г
-
-[Салаты]
-Салат с креветками 28 250г
-Салат с лососем 26 250г
-Салат с тунцом 26 250г
-Салат с цыплёнком 24 250г
-
-[Круассаны]
-Круассан классический 6
-Круассан глазунья 19
-Эль круассан 19
-Гурме круассан 19
-Круассан биф 19
-Круассан пиканте 19
-Круассан с лососем 19
-Круассан с креветкой 24
-Круассан с тунцом 22
-Миндальный круассан 19
-Шоколадный Париж 19
-Лавандовая Любовь 19
-Ягода Малина 19
-Круассан Фисташка 19
-
-[Скрембл]
-Скрембл 21
-Скрембл с креветкой 24
-
-[Яичница/омлет]
-Яичница глазунья 21
-Омлет с лососем 24
-`;
-
-/***********************
- * ПАРСЕР (НЕ ЛОМАЕТСЯ НА "12 15 40мл")
- ***********************/
-function normalizeSpaces(s){
-  return String(s || "").replace(/\s+/g, " ").trim();
-}
-
-function isCategoryLine(line){
-  // "Закуски:" "Поляна:" и т.п., но не [Подкатегория]
-  return line.endsWith(":") && !line.startsWith("[") && !line.startsWith("http");
-}
-
-function isSubcategoryLine(line){
-  return line.startsWith("[") && line.endsWith("]");
-}
-
-function parseWeightToken(tok){
-  // 250г, 40мл, 0,75л, 1000мл и т.д.
-  // запятая в литрах допустима
-  const m = String(tok).match(/^(\d+(?:[.,]\d+)?)(г|мл|л)$/i);
-  if (!m) return null;
-  // вернём как было, но точку заменим обратно на запятую если нужно
-  const numRaw = m[1].replace(".", ",");
-  const unit = m[2].toLowerCase();
-  return `${numRaw}${unit}`;
-}
-
-function parsePriceToken(tok){
-  // чистое число "19"
-  const n = Number(String(tok).replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
-
-function extractNamePriceWeight(leftPart){
-  const raw = normalizeSpaces(leftPart);
-  const tokens = raw.split(" ").filter(Boolean);
-
-  // найти вес/объём (последний токен с г/мл/л обычно)
-  let weight = "";
-  let weightIdx = -1;
-  for (let i = 0; i < tokens.length; i++){
-    const w = parseWeightToken(tokens[i]);
-    if (w){
-      weight = w;
-      weightIdx = i;
-    }
-  }
-
-  // цена: если вес есть — берём ближайшее число слева от веса
-  // если веса нет — берём последнее число в строке
-  let price = null;
-  if (weightIdx !== -1){
-    for (let i = weightIdx - 1; i >= 0; i--){
-      if (/^\d+$/.test(tokens[i])){
-        price = parseInt(tokens[i], 10);
-        break;
-      }
-    }
-  } else {
-    for (let i = tokens.length - 1; i >= 0; i--){
-      if (/^\d+$/.test(tokens[i])){
-        price = parseInt(tokens[i], 10);
-        break;
-      }
-    }
-  }
-
-  // имя: выкидываем цену (одно вхождение) и вес (одно вхождение)
-  let nameTokens = tokens.slice();
-
-  if (weightIdx !== -1){
-    nameTokens.splice(weightIdx, 1);
-  }
-
-  if (price !== null){
-    // удалим ТОЛЬКО то число, которое считается ценой — желательно ближайшее к концу
-    for (let i = nameTokens.length - 1; i >= 0; i--){
-      if (nameTokens[i] === String(price)){
-        nameTokens.splice(i, 1);
-        break;
-      }
-    }
-  }
-
-  // убрать "y.o" и "лет" (это не цена/вес)
-  nameTokens = nameTokens.filter(t => !/^y\.o$/i.test(t) && t !== "лет");
-
-  const name = normalizeSpaces(nameTokens.join(" "));
-
-  return { name, price: price ?? 0, weight };
-}
-
-function parseMenuText(text){
-  const lines = String(text)
-    .split("\n")
-    .map(l => l.replace(/\r/g, "").trim())
-    .filter(l => l.length > 0);
-
-  let curCat = "Без категории";
-  let curSub = "";
-
-  const out = [];
-  const seen = new Set(); // чтобы не было дублей
-
-  for (const line of lines){
-    if (isCategoryLine(line)){
-      curCat = normalizeSpaces(line.slice(0, -1));
-      curSub = "";
+function parseMenu(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const items = [];
+
+  let cat = '';
+  let sub = '';
+
+  for (let line of lines) {
+    // Категория
+    if (line.endsWith(':') && !line.startsWith('[')) {
+      cat = line.replace(':','');
+      sub = '';
       continue;
     }
 
-    if (isSubcategoryLine(line)){
-      curSub = normalizeSpaces(line.slice(1, -1));
+    // Подкатегория
+    if (line.startsWith('[') && line.endsWith(']')) {
+      sub = line.slice(1,-1);
       continue;
     }
 
-    // позиция
-    const [leftRaw, descRaw] = line.split("|");
-    const left = normalizeSpaces(leftRaw);
-    const desc = normalizeSpaces(descRaw || "");
+    // Блюдо
+    const [left, desc] = line.split('|').map(s=>s?.trim());
+    const parts = left.split(' ');
+    const price = parseInt(parts.find(p => /^\d+$/.test(p)));
+    const weight = parts.find(p => /(г|мл|л)$/i.test(p)) || '';
+    const name = left
+      .replace(price,'')
+      .replace(weight,'')
+      .trim();
 
-    const { name, price, weight } = extractNamePriceWeight(left);
+    if (!name || !price) continue;
 
-    // пропуск мусора
-    if (!name) continue;
-
-    const key = `${curCat}||${curSub}||${name}||${price}||${weight}||${desc}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    out.push({
-      category: curCat,
-      sub: curSub,
+    items.push({
+      id: items.length + 1,
       name,
       price,
       weight,
-      desc
+      desc: desc || '',
+      category: cat,
+      subCategory: sub
     });
   }
 
-  return out;
+  return items;
 }
 
-const MENU = parseMenuText(MENU_TEXT);
+/***********************
+ * ДАННЫЕ МЕНЮ (ТВОЙ ТЕКСТ)
+ ***********************/
+const MENU_TEXT = `
+${`ТУТ БУДЕТ ТВОЙ БОЛЬШОЙ ТЕКСТ МЕНЮ, КОТОРЫЙ ТЫ УЖЕ ПРИСЛАЛ`}
+`;
 
 /***********************
- * РЕНДЕР МЕНЮ
+ * РЕНДЕР
  ***********************/
-function el(id){ return document.getElementById(id); }
+function renderTables() {
+  const wrap = $('tableTabs');
+  wrap.innerHTML = '';
+  for (let i=1;i<=TABLES_COUNT;i++){
+    const b = document.createElement('button');
+    b.className = 'tab' + (state.table===i?' active':'');
+    b.textContent = i;
+    b.onclick = () => {
+      state.table = i;
+      saveState();
+      renderAll();
+    };
+    wrap.appendChild(b);
+  }
+}
 
-function renderMenu(){
-  const root = el("menu");
-  if (!root) return;
-  root.innerHTML = "";
-
-  let lastCat = "";
-  let lastSub = "";
-
-  MENU.forEach(item => {
-    if (item.category !== lastCat){
-      const h = document.createElement("h2");
-      h.textContent = item.category;
-      root.appendChild(h);
-      lastCat = item.category;
-      lastSub = "";
-    }
-
-    if (item.sub && item.sub !== lastSub){
-      const sh = document.createElement("h3");
-      sh.textContent = item.sub;
-      root.appendChild(sh);
-      lastSub = item.sub;
-    }
-
-    const card = document.createElement("div");
-    card.className = "item";
-
-    card.innerHTML = `
-      <div class="row">
-        <div class="left">
-          <div class="title"><b>${escapeHtml(item.name)}</b></div>
-          ${item.weight ? `<div class="weight">${escapeHtml(item.weight)}</div>` : ""}
-          ${item.desc ? `<div class="desc">${escapeHtml(item.desc)}</div>` : ""}
-        </div>
-        <div class="price">${item.price} р</div>
-      </div>
-    `;
-
-    card.addEventListener("click", () => addToTable(item));
-    root.appendChild(card);
+function renderCategories() {
+  const cats = [...new Set(state.menu.map(i=>i.category))];
+  const wrap = $('categoryPills');
+  wrap.innerHTML = '';
+  cats.forEach(c=>{
+    const b = document.createElement('div');
+    b.className = 'pill'+(state.category===c?' active':'');
+    b.textContent = c;
+    b.onclick = ()=>{
+      state.category = c;
+      state.subCategory = '';
+      renderAll();
+    };
+    wrap.appendChild(b);
   });
 }
 
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function renderSubCategories() {
+  const subs = [...new Set(
+    state.menu.filter(i=>i.category===state.category && i.subCategory)
+      .map(i=>i.subCategory)
+  )];
+  const wrap = $('subCategoryPills');
+  wrap.innerHTML = '';
+  subs.forEach(s=>{
+    const b = document.createElement('div');
+    b.className = 'pill'+(state.subCategory===s?' active':'');
+    b.textContent = s;
+    b.onclick = ()=>{
+      state.subCategory = s;
+      renderAll();
+    };
+    wrap.appendChild(b);
+  });
 }
 
-/***********************
- * СТОЛЫ / ЗАКАЗ
- ***********************/
-function ensureTable(){
-  if (!state.currentTable) return null;
-  state.tables[state.currentTable] ||= [];
-  return state.tables[state.currentTable];
+function renderMenu() {
+  const wrap = $('menuList');
+  wrap.innerHTML = '';
+
+  let list = state.menu;
+
+  if (state.category)
+    list = list.filter(i=>i.category===state.category);
+  if (state.subCategory)
+    list = list.filter(i=>i.subCategory===state.subCategory);
+  if (state.search)
+    list = list.filter(i=>i.name.toLowerCase().includes(state.search));
+
+  list.forEach(i=>{
+    const row = document.createElement('div');
+    row.className = 'item';
+
+    const left = document.createElement('div');
+    left.innerHTML = `
+      <div><b>${i.name}</b> — ${i.price} р</div>
+      ${i.weight?`<div class="meta">${i.weight}</div>`:''}
+      ${i.desc?`<div class="desc">${i.desc}</div>`:''}
+    `;
+
+    const step = document.createElement('div');
+    step.className = 'stepper';
+    const qty = state.orders[state.table]?.[i.id] || 0;
+
+    const minus = document.createElement('button');
+    minus.textContent = '–';
+    minus.onclick = ()=>{
+      if (!state.orders[state.table]) state.orders[state.table]={};
+      state.orders[state.table][i.id] = Math.max(0, qty-1);
+      saveState(); renderAll();
+    };
+
+    const plus = document.createElement('button');
+    plus.textContent = '+';
+    plus.onclick = ()=>{
+      if (!state.orders[state.table]) state.orders[state.table]={};
+      state.orders[state.table][i.id] = qty+1;
+      saveState(); renderAll();
+    };
+
+    const q = document.createElement('div');
+    q.className='qty';
+    q.textContent = qty;
+
+    step.append(minus,q,plus);
+    row.append(left,step);
+    wrap.appendChild(row);
+  });
 }
 
-function addToTable(item){
-  const arr = ensureTable();
-  if (!arr){
-    alert("Выберите стол");
-    return;
-  }
-  arr.push({ ...item, qty: 1 });
-  saveState();
-  renderOrder();
-}
-
-function renderOrder(){
-  const box = el("order");
-  const totalEl = el("total");
-  if (!box || !totalEl) return;
-
-  box.innerHTML = "";
-
-  const items = state.currentTable ? (state.tables[state.currentTable] || []) : [];
+function renderOrder() {
+  $('tableNum').textContent = state.table;
+  const wrap = $('orderList');
+  wrap.innerHTML = '';
+  const order = state.orders[state.table]||{};
   let sum = 0;
 
-  items.forEach((i, idx) => {
-    sum += (i.price || 0) * (i.qty || 1);
-
-    const row = document.createElement("div");
-    row.className = "orderRow";
-    row.innerHTML = `
-      <div class="orderName">${escapeHtml(i.name)}</div>
-      <div class="orderRight">
-        <button class="btnMini" data-act="minus" data-idx="${idx}">−</button>
-        <span class="qty">${i.qty || 1}</span>
-        <button class="btnMini" data-act="plus" data-idx="${idx}">+</button>
-        <span class="orderPrice">${i.price} р</span>
-      </div>
-      ${i.weight ? `<div class="orderMeta">${escapeHtml(i.weight)}</div>` : ""}
-    `;
-    box.appendChild(row);
+  Object.entries(order).forEach(([id,qty])=>{
+    if (qty<=0) return;
+    const item = state.menu.find(i=>i.id==id);
+    sum += item.price*qty;
+    const d = document.createElement('div');
+    d.className='item';
+    d.innerHTML = `<b>${item.name}</b> × ${qty} — ${item.price*qty} р`;
+    wrap.appendChild(d);
   });
 
-  box.onclick = (e) => {
-    const b = e.target.closest("button");
-    if (!b) return;
-    const idx = parseInt(b.dataset.idx, 10);
-    const act = b.dataset.act;
-    const arr = ensureTable();
-    if (!arr || !arr[idx]) return;
-
-    if (act === "plus"){
-      arr[idx].qty = (arr[idx].qty || 1) + 1;
-    } else if (act === "minus"){
-      arr[idx].qty = (arr[idx].qty || 1) - 1;
-      if (arr[idx].qty <= 0) arr.splice(idx, 1);
-    }
-    saveState();
-    renderOrder();
-  };
-
-  totalEl.textContent = `${sum} р`;
+  $('orderTotals').textContent = sum?`Итого: ${sum} р`:'';
 }
 
-function selectTable(n){
-  state.currentTable = String(n);
-  saveState();
-  renderOrder();
-  renderCurrentTableLabel();
-}
-
-function renderCurrentTableLabel(){
-  const t = el("currentTableLabel");
-  if (!t) return;
-  t.textContent = state.currentTable ? `Заказ (стол ${state.currentTable})` : "Заказ";
-}
-
-function clearTable(){
-  if (!state.currentTable) return;
-  state.tables[state.currentTable] = [];
-  saveState();
-  renderOrder();
-}
-
-function closeTable(){
-  if (!state.currentTable) return;
-
-  const items = state.tables[state.currentTable] || [];
-  if (items.length === 0){
-    // просто закрыть пустой стол
-    delete state.tables[state.currentTable];
-    state.currentTable = null;
-    saveState();
-    renderOrder();
-    renderHistory();
-    renderCurrentTableLabel();
-    return;
-  }
-
-  state.history.unshift({
-    table: state.currentTable,
-    date: new Date().toLocaleString(),
-    items
-  });
-
-  delete state.tables[state.currentTable];
-  state.currentTable = null;
-
-  saveState();
-  renderOrder();
-  renderHistory();
-  renderCurrentTableLabel();
-}
-
-/***********************
- * ИСТОРИЯ
- ***********************/
-function renderHistory(){
-  const box = el("history");
-  if (!box) return;
-  box.innerHTML = "";
-
-  state.history.forEach(h => {
-    const d = document.createElement("div");
-    d.className = "historyRow";
-    d.textContent = `${h.date} — стол ${h.table}`;
-    box.appendChild(d);
-  });
-}
-
-/***********************
- * ТАБЛИЦА СТОЛОВ (если есть контейнер)
- ***********************/
-function renderTablesButtons(){
-  const cont = el("tablesList");
-  if (!cont) return;
-
-  cont.innerHTML = "";
-  for (let i = 1; i <= 15; i++){
-    const b = document.createElement("button");
-    b.className = "tableBtn";
-    b.textContent = `Стол ${i}`;
-    b.onclick = () => selectTable(i);
-    cont.appendChild(b);
-  }
-}
-
-/***********************
- * INIT
- ***********************/
-document.addEventListener("DOMContentLoaded", () => {
+function renderAll(){
+  renderTables();
+  renderCategories();
+  renderSubCategories();
   renderMenu();
-  renderTablesButtons();
   renderOrder();
-  renderHistory();
-  renderCurrentTableLabel();
-
-  // восстановление details "Столы"
-  const det = el("tablesDetails");
-  if (det){
-    const saved = localStorage.getItem("tablesOpen");
-    if (saved === "false") det.removeAttribute("open");
-    det.addEventListener("toggle", () => {
-      localStorage.setItem("tablesOpen", String(det.open));
-    });
-  }
-});
+}
 
 /***********************
- * ВАЖНО: чтобы кнопки работали из HTML (onclick="...")
+ * СОБЫТИЯ
  ***********************/
-window.selectTable = selectTable;
-window.clearTable = clearTable;
-window.closeTable = closeTable;
-window.renderMenu = renderMenu;
+$('search').oninput = e=>{
+  state.search = e.target.value.toLowerCase();
+  renderMenu();
+};
+
+$('clearTable').onclick = ()=>{
+  state.orders[state.table]={};
+  saveState(); renderAll();
+};
+
+$('closeTable').onclick = ()=>{
+  state.history.push({
+    table: state.table,
+    order: state.orders[state.table],
+    time: new Date().toLocaleString()
+  });
+  state.orders[state.table]={};
+  saveState(); renderAll();
+};
+
+/***********************
+ * СТАРТ
+ ***********************/
+loadState();
+state.menu = parseMenu(MENU_TEXT);
+if (!state.category && state.menu.length)
+  state.category = state.menu[0].category;
+
+renderAll();
