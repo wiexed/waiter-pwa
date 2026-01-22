@@ -192,7 +192,21 @@ const elExportHistory = document.getElementById("exportHistory");
 
 const elAdminList = document.getElementById("menuAdminList");
 
+function must(el, id){
+  if (!el) throw new Error("Не найден элемент #" + id);
+  return el;
+}
 
+must(elTabs, "tableTabs");
+must(elPills, "categoryPills");
+must(elMenu, "menuList");
+must(elOrder, "orderList");
+must(elTotals, "orderTotals");
+must(elTableNum, "tableNum");
+must(elSearch, "search");
+must(elClose, "closeTable");
+must(elClear, "clearTable");
+must(elStatus, "status");
 function parsePriceFromLine(line) {
   // вытаскиваем последнюю группу цифр как цену (поддерживает "350", "350р", "350 ₽", "350руб")
   const m = line.match(/(\d+)\s*(?:р|р|руб)?\s*$/i);
