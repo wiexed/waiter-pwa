@@ -1,31 +1,34 @@
-const CACHE_NAME = "waiter-pwa-v7"; // <-- важно: при изменениях увеличивай версию
+const CACHE = "waiter-cache-v2";
+
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
-  "./manifest.json",
-  "./sw.js",
+  "./sw.js"
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.map(k => (k === CACHE_NAME ? null : caches.delete(k))))
-    )
+      Promise.all(keys.map(k => (k === CACHE ? null : caches.delete(k))))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
+  const req = event.request;
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    caches.match(req).then(cached => cached || fetch(req).then(res => {
+      // подстрахуем кеш (для локального использования)
+      const copy = res.clone();
+      caches.open(CACHE).then(cache => cache.put(req, copy)).catch(()=>{});
+      return res;
+    }).catch(() => cached))
   );
 });
-
