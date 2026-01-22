@@ -469,14 +469,21 @@ function renderHistory() {
       .map((x) => `${x.name} ×${x.qty}`)
       .join(" • ");
 
-    wrap.append(head, body);
-    els.historyList.appendChild(wrap);
-    if (h.note) {
-  const note = document.createElement("div");
-  note.className = "desc";
-  note.textContent = `Заметка: ${h.note}`;
-  wrap.appendChild(note);
+let noteEl = null;
+
+if (h.note) {
+  noteEl = document.createElement("div");
+  noteEl.className = "meta";
+  noteEl.style.marginTop = "4px";
+  noteEl.style.opacity = "0.8";
+  noteEl.textContent = `Заметка: ${h.note}`;
 }
+    if (noteEl) {
+  wrap.append(head, body, noteEl);
+} else {
+  wrap.append(head, body);
+}
+    els.historyList.appendChild(wrap);
   }
 }
 
