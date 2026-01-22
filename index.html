@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#0b1220" />
   <title>Официант — 10 столов</title>
 
+  <link rel="manifest" href="manifest.json" />
+
   <style>
     :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e5e7eb; }
@@ -88,7 +90,7 @@
 
     main { padding: 14px; display: grid; gap: 12px; }
 
-    input {
+    input, textarea {
       width: 100%;
       padding: 12px;
       border-radius: 12px;
@@ -96,7 +98,9 @@
       background: #111827;
       color:#e5e7eb;
       box-sizing: border-box;
+      outline: none;
     }
+    textarea { min-height: 80px; resize: vertical; }
 
     .item {
       display:flex;
@@ -127,6 +131,29 @@
     button.danger { background:#b91c1c; border-color:#b91c1c; }
     .btnrow { display:flex; gap: 10px; flex-wrap: wrap; }
     .small { padding: 8px 10px; border-radius: 10px; }
+
+    dialog::backdrop { background: rgba(0,0,0,.6); }
+    dialog { padding: 0; }
+    .dlgHead {
+      padding: 12px 14px;
+      border-bottom: 1px solid #1f2937;
+      background: #0b1220;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .dlgBody { padding: 14px; }
+    .grid2 { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 720px){ .grid2 { grid-template-columns: 1fr 1fr; } }
+
+    .listMini { margin-top: 12px; border-top: 1px dashed #243244; padding-top: 12px; }
+    .miniRow { display:flex; justify-content:space-between; gap:10px; padding: 10px 0; border-bottom: 1px dashed #243244; }
+    .miniRow:last-child { border-bottom: 0; }
+    .miniTitle { font-weight: 900; }
+    .miniBtns { display:flex; gap:8px; flex-wrap:wrap; }
   </style>
 </head>
 
@@ -134,7 +161,10 @@
   <header>
     <div class="row" style="justify-content: space-between;">
       <div style="font-weight:900; font-size:18px;">Официант (офлайн)</div>
-      <div id="status" class="hint"></div>
+      <div class="row">
+        <button class="small" id="openEditor">Редактировать меню</button>
+        <div id="status" class="hint"></div>
+      </div>
     </div>
 
     <details class="card" id="tablesDetails" style="margin-top:10px;">
@@ -175,16 +205,80 @@
     </div>
 
     <details class="card">
-      <summary style="font-weight:900;">История закрытий</summary>
+      <summary style="font-weight:900;">
+        <span class="tri" aria-hidden="true"></span>
+        История закрытий
+      </summary>
       <div style="display:flex; gap:8px; margin:10px 12px; flex-wrap:wrap;">
         <button id="exportHistory" class="small">Экспорт</button>
+        <button id="importHistory" class="small">Импорт</button>
         <button id="clearHistory" class="danger small">Очистить историю</button>
       </div>
       <div id="historyList" style="padding:0 12px 12px;"></div>
     </details>
 
-    <div class="hint">разработано лично для моей Каринки остальные сасите.</div>
+    <div class="hint">Валюта: р • Граммовка мелким • Иконок нет</div>
   </main>
+
+  <!-- Редактор меню -->
+  <dialog id="menuEditor" style="width:min(900px, 96vw); border:1px solid #1f2937; border-radius:16px; background:#0b1220; color:#e5e7eb;">
+    <div class="dlgHead">
+      <div style="font-weight:900;">Редактор меню</div>
+      <div class="row">
+        <button class="small" id="exportMenu">Экспорт меню</button>
+        <button class="small" id="importMenu">Импорт меню</button>
+        <button class="small" id="closeEditor">Закрыть</button>
+      </div>
+    </div>
+
+    <div class="dlgBody">
+      <div class="grid2">
+        <label>
+          <div class="hint">Категория</div>
+          <input id="fCat" placeholder="Напитки / Поляна / Алкоголь..." />
+        </label>
+
+        <label>
+          <div class="hint">Подкатегория (необязательно)</div>
+          <input id="fSub" placeholder="Лимонады / Пиво / ..." />
+        </label>
+
+        <label style="grid-column: 1 / -1;">
+          <div class="hint">Название</div>
+          <input id="fName" placeholder="Например: Мохито" />
+        </label>
+
+        <label>
+          <div class="hint">Граммовка (мелким)</div>
+          <input id="fGram" placeholder="250г / 300мл / 0,75л" />
+        </label>
+
+        <label>
+          <div class="hint">Цена (в р)</div>
+          <input id="fPrice" inputmode="decimal" placeholder="19" />
+        </label>
+
+        <label style="grid-column: 1 / -1;">
+          <div class="hint">Состав / описание</div>
+          <textarea id="fDesc" placeholder="Мята, лайм, сахарный сироп..."></textarea>
+        </label>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <button id="saveItem">Добавить</button>
+        <button id="resetForm" class="small">Сброс</button>
+        <span class="hint" id="editHint"></span>
+      </div>
+
+      <div class="listMini">
+        <div class="row" style="justify-content: space-between;">
+          <div style="font-weight:900;">Позиции меню</div>
+          <div class="hint">Редактируй / удаляй — сохраняется офлайн</div>
+        </div>
+        <div id="menuAdminList"></div>
+      </div>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>
