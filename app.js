@@ -738,7 +738,21 @@ if (tablesDetails && tablesSummary) {
     tablesSummary.textContent = (tablesDetails.open ? "▼" : "▶") + " Столы";
   });
 }
+// === запоминать открыто/закрыто для блока "Столы" ===
+const LS_TABLES_OPEN = "waiter_tables_open_v1";
 
+const tablesDetails = document.getElementById("tablesDetails");
+if (tablesDetails) {
+  // восстановить состояние при загрузке
+  const saved = localStorage.getItem(LS_TABLES_OPEN);
+  if (saved === "0") tablesDetails.removeAttribute("open");
+  if (saved === "1") tablesDetails.setAttribute("open", "");
+
+  // сохранять при каждом открытии/закрытии
+  tablesDetails.addEventListener("toggle", () => {
+    localStorage.setItem(LS_TABLES_OPEN, tablesDetails.open ? "1" : "0");
+  });
+}
 renderAll();
 
 
