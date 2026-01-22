@@ -1,4 +1,4 @@
-const CACHE = "waiter-cache-v9";
+const CACHE = "waiter-cache-v12";
 
 const ASSETS = [
   "./",
