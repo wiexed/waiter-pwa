@@ -176,7 +176,7 @@ const elTableNum = document.getElementById("tableNum");
 const elSearch = document.getElementById("search");
 const elClear = document.getElementById("clearTable");
 const elClose = document.getElementById("closeTable");
-
+const elClearHistory = document.getElementById("clearHistory");
 const elStatus = document.getElementById("status");
 
 const elNewName = document.getElementById("newName");
@@ -188,7 +188,7 @@ const elNewPrice = document.getElementById("newPrice");
 const elAddItem = document.getElementById("addItem");
 const elResetMenu = document.getElementById("resetMenu");
 const elExportHistory = document.getElementById("exportHistory");
-const elClearHistory = document.getElementById("clearHistory");
+
 const elAdminList = document.getElementById("menuAdminList");
 function parsePriceFromLine(line) {
   // вытаскиваем последнюю группу цифр как цену (поддерживает "350", "350р", "350 ₽", "350руб")
@@ -711,7 +711,20 @@ function escapeHtml(s){
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
 }
+if (elClearHistory) {
+  elClearHistory.onclick = () => {
+    if (!confirm("Очистить всю историю закрытий?")) return;
 
+    history = [];
+    localStorage.removeItem("waiter_history_v1"); // 💥 ГАРАНТИРОВАННО очищает
+    renderHistory();
+
+    alert("История очищена");
+  };
+} else {
+  console.log("❌ Кнопка clearHistory не найдена");
+}
 renderAll();
+
 
 
