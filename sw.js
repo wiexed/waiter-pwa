@@ -1,4 +1,4 @@
-const CACHE_NAME = "waiter-pwa-v6"; // <-- важно: при изменениях увеличивай версию
+const CACHE_NAME = "waiter-pwa-v7"; // <-- важно: при изменениях увеличивай версию
 const ASSETS = [
   "./",
   "./index.html",
@@ -28,3 +28,4 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then(cached => cached || fetch(event.request))
   );
 });
+
