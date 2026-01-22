@@ -197,12 +197,13 @@ let hideTables = localStorage.getItem(LS_HIDE_TABLES) === "1";
 function applyTablesVisibility() {
   if (hideTables) {
     elTabs.style.display = "none";
-    elToggleTables.textContent = "Показать столы";
+    elToggleTables.textContent = "▼"; // развернуть
   } else {
     elTabs.style.display = "";
-    elToggleTables.textContent = "Скрыть столы";
+    elToggleTables.textContent = "▲"; // свернуть
   }
 }
+
 
 function parsePriceFromLine(line) {
   // вытаскиваем последнюю группу цифр как цену (поддерживает "350", "350р", "350 ₽", "350руб")
@@ -746,6 +747,7 @@ if (elClearHistory) {
   console.log("❌ Кнопка clearHistory не найдена");
 }
 renderAll();
+
 
 
 
