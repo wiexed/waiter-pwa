@@ -33,6 +33,18 @@
     .two { display:grid; grid-template-columns: 1fr; gap: 12px; }
     @media (min-width: 900px){ .two { grid-template-columns: 1fr 1fr; } }
     .hint { color:#9ca3af; font-size: 13px; line-height: 1.4; }
+    .tables-details {
+  margin-top: 10px;
+}
+
+.tables-summary {
+  color: #9ca3af;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 8px;
+}
+
     .triangle-btn {
   padding: 6px 10px;
   font-size: 14px;
@@ -49,18 +61,17 @@
 </head>
 <body>
   <header>
-    <div class="row">
-      <div style="font-weight:800; font-size:18px;">Официант (офлайн)</div>
-      <div id="status" class="hint"></div>
-    </div>
-    <div class="row" style="margin-top:8px;">
-  <button id="toggleTables" class="triangle-btn" aria-label="Свернуть/развернуть столы">
-  ▲
-</button>
+  <div class="row">
+    <div style="font-weight:800; font-size:18px;">Официант (офлайн)</div>
+    <div id="status" class="hint"></div>
+  </div>
 
-</div>
+  <details class="tables-details" open>
+    <summary class="tables-summary">Столы</summary>
     <div class="tabs" id="tableTabs"></div>
-  </header>
+  </details>
+</header>
+
 
   <div class="pillbar" id="categoryPills"></div>
 
@@ -149,5 +160,6 @@
   <script src="app.js"></script>
 </body>
 </html>
+
 
 
