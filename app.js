@@ -7,7 +7,6 @@ const LS_ORDERS = "waiter_orders_v1";
 const LS_TABLE = "waiter_active_table_v1";
 const LS_CAT = "waiter_active_cat_v1";
 const LS_HISTORY = "waiter_history_v1";
-const LS_HIDE_TABLES = "waiter_hide_tables_v1";
 
 const DEFAULT_MENU = [
   // Закуски
@@ -173,7 +172,6 @@ const elMenu = document.getElementById("menuList");
 const elOrder = document.getElementById("orderList");
 const elTotals = document.getElementById("orderTotals");
 const elTableNum = document.getElementById("tableNum");
-const elToggleTables = document.getElementById("toggleTables");
 
 const elSearch = document.getElementById("search");
 const elClear = document.getElementById("clearTable");
@@ -192,17 +190,6 @@ const elResetMenu = document.getElementById("resetMenu");
 const elExportHistory = document.getElementById("exportHistory");
 
 const elAdminList = document.getElementById("menuAdminList");
-let hideTables = localStorage.getItem(LS_HIDE_TABLES) === "1";
-
-function applyTablesVisibility() {
-  if (hideTables) {
-    elTabs.style.display = "none";
-    elToggleTables.textContent = "▼"; // развернуть
-  } else {
-    elTabs.style.display = "";
-    elToggleTables.textContent = "▲"; // свернуть
-  }
-}
 
 
 function parsePriceFromLine(line) {
@@ -504,7 +491,6 @@ function renderAll() {
   renderOrder();
   renderAdmin();
   renderHistory();
-  applyTablesVisibility();
 }
 
 function buildReceiptForTable(tableNum) {
@@ -551,13 +537,6 @@ elClose.onclick = () => {
     alert("Стол и так пустой");
     return;
   }
-if (elToggleTables) {
-  elToggleTables.onclick = () => {
-    hideTables = !hideTables;
-    localStorage.setItem(LS_HIDE_TABLES, hideTables ? "1" : "0");
-    applyTablesVisibility();
-  };
-}
   if (elClearHistory) {
   elClearHistory.onclick = () => {
     if (!confirm("Очистить всю историю закрытий?")) return;
@@ -756,6 +735,7 @@ if (tablesDetails && tablesSummary) {
 }
 
 renderAll();
+
 
 
 
