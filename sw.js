@@ -1,4 +1,4 @@
-const CACHE_NAME = "waiter-pwa-v3";
+const CACHE_NAME = "waiter-pwa-v4";
 const ASSETS = ["./", "./index.html", "./app.js", "./manifest.json", "./sw.js"];
 
 self.addEventListener("install", (event) => {
@@ -22,3 +22,4 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then(cached => cached || fetch(event.request))
   );
 });
+
