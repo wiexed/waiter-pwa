@@ -471,6 +471,12 @@ function renderHistory() {
 
     wrap.append(head, body);
     els.historyList.appendChild(wrap);
+    if (h.note) {
+  const note = document.createElement("div");
+  note.className = "desc";
+  note.textContent = `Заметка: ${h.note}`;
+  wrap.appendChild(note);
+}
   }
 }
 
@@ -542,6 +548,9 @@ function renderAll() {
   renderMenuList();
   renderOrder();
   renderHistory();
+  if (els.tableNote) {
+  els.tableNote.value = tables[selectedTable - 1].note || "";
+}
 }
 
 /* ---------- действия ---------- */
@@ -566,6 +575,7 @@ function closeCurrentTable() {
     time: nowISO(),
     table: selectedTable,
     total,
+    note: tables[selectedTable - 1].note || "",
     items: items.map(({ it, qty }) => ({
       id: it.id,
       name: it.name,
@@ -574,7 +584,7 @@ function closeCurrentTable() {
       grams: it.grams || "",
     })),
   });
-
+tables[selectedTable - 1].note = "";
   tables[selectedTable - 1].order = {};
   saveHistory();
   saveTables();
@@ -713,6 +723,12 @@ function importHistory() {
 /* ---------- init ---------- */
 
 function init() {
+  if (els.tableNote) {
+  els.tableNote.addEventListener("input", () => {
+    tables[selectedTable - 1].note = els.tableNote.value;
+    saveTables();
+  });
+}
   ensureDataVersion();
 
   // загружаем данные после возможного сброса
