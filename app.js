@@ -746,7 +746,17 @@ if (elClearHistory) {
 } else {
   console.log("❌ Кнопка clearHistory не найдена");
 }
+const tablesDetails = document.querySelector("details.card");
+const tablesSummary = document.getElementById("tablesSummary");
+
+if (tablesDetails && tablesSummary) {
+  tablesDetails.addEventListener("toggle", () => {
+    tablesSummary.textContent = (tablesDetails.open ? "▼" : "▶") + " Столы";
+  });
+}
+
 renderAll();
+
 
 
 
