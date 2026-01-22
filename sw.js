@@ -1,5 +1,11 @@
-const CACHE_NAME = "waiter-pwa-v4";
-const ASSETS = ["./", "./index.html", "./app.js", "./manifest.json", "./sw.js"];
+const CACHE_NAME = "waiter-pwa-v6"; // <-- важно: при изменениях увеличивай версию
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./app.js",
+  "./manifest.json",
+  "./sw.js",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -22,6 +28,3 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then(cached => cached || fetch(event.request))
   );
 });
-
-
-
