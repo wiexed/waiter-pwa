@@ -167,6 +167,7 @@ let activeCat = localStorage.getItem(LS_CAT) || "Все";
 let searchText = "";
 
 const elTabs = document.getElementById("tableTabs");
+const elTablesDetails = document.getElementById("tablesDetails");
 const elPills = document.getElementById("categoryPills");
 const elMenu = document.getElementById("menuList");
 const elOrder = document.getElementById("orderList");
@@ -280,10 +281,14 @@ function renderTabs() {
     const counts = tableCounts(t);
     btn.textContent = `Стол ${t} (${counts.positions}/${counts.totalQty})`;
     btn.onclick = () => {
-      activeTable = t;
-      localStorage.setItem(LS_TABLE, String(activeTable));
-      renderAll();
-    };
+  activeTable = t;
+  localStorage.setItem(LS_TABLE, String(activeTable));
+
+  // авто-закрытие "Столы"
+  if (elTablesDetails) elTablesDetails.open = false;
+
+  renderAll();
+};
     elTabs.appendChild(btn);
   }
 }
