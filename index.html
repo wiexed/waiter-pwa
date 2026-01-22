@@ -6,19 +6,88 @@
   <meta name="theme-color" content="#0b1220" />
   <title>Официант — 10 столов</title>
 
-  <link rel="manifest" href="./manifest.json" />
-
   <style>
     :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e5e7eb; }
-    header { padding: 14px 14px 10px; position: sticky; top: 0; background: #0b1220; border-bottom: 1px solid #1f2937; z-index: 10; }
-    main { padding: 14px; display: grid; gap: 12px; }
+
+    header {
+      padding: 14px 14px 10px;
+      position: sticky;
+      top: 0;
+      background: #0b1220;
+      border-bottom: 1px solid #1f2937;
+      z-index: 10;
+    }
 
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .hint { color:#9ca3af; font-size: 13px; line-height: 1.4; }
+
     .card { border: 1px solid #1f2937; background: #111827; border-radius: 16px; padding: 12px; }
     .two { display:grid; grid-template-columns: 1fr; gap: 12px; }
     @media (min-width: 900px){ .two { grid-template-columns: 1fr 1fr; } }
+
+    /* Столы (как details) */
+    details.card { padding: 0; overflow: hidden; }
+    details.card > summary {
+      list-style: none; /* убираем дефолтный маркер */
+      cursor: pointer;
+      font-weight: 800;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+    }
+    details.card > summary::-webkit-details-marker { display: none; }
+
+    /* Свой треугольник */
+    .tri {
+      width: 0; height: 0;
+      border-left: 8px solid #9ca3af;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      transform: rotate(0deg);
+      transition: transform .15s ease;
+      opacity: .9;
+    }
+    details[open] .tri { transform: rotate(90deg); }
+
+    .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 0 12px 12px; }
+    .tab {
+      padding: 10px 8px;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      background: #0b1220;
+      cursor: pointer;
+      text-align: center;
+      font-weight: 700;
+    }
+    .tab.active { outline: 2px solid #60a5fa; }
+
+    /* Пиллы */
+    .pillbar {
+      display:flex;
+      gap: 8px;
+      overflow:auto;
+      padding: 10px 14px;
+      border-bottom: 1px solid #1f2937;
+      background:#0b1220;
+      position: sticky;
+      top: 120px; /* ниже header + блока столов в закрытом виде */
+      z-index: 9;
+    }
+    .pill {
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background:#111827;
+      cursor: pointer;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .pill.active { outline: 2px solid #34d399; }
+
+    main { padding: 14px; display: grid; gap: 12px; }
 
     input, textarea {
       width: 100%;
@@ -30,78 +99,69 @@
       box-sizing: border-box;
     }
 
-    /* Tabs (столы) */
-    .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
-    .tab { padding: 10px 8px; border-radius: 12px; border: 1px solid #1f2937; background: #0b1220; cursor: pointer; text-align: center; font-weight: 600; }
-    .tab.active { outline: 2px solid #60a5fa; }
-
-    /* Pills */
-    .pillbar { display:flex; gap: 8px; overflow:auto; padding: 10px 14px; border-bottom: 1px solid #1f2937; background:#0b1220; position: sticky; top: 146px; z-index: 9; }
-    .subpillbar { display:flex; gap: 8px; overflow:auto; padding: 0 14px 10px; border-bottom: 1px solid #1f2937; background:#0b1220; position: sticky; top: 196px; z-index: 8; }
-    .pill { padding: 8px 10px; border-radius: 999px; border: 1px solid #1f2937; background:#111827; cursor: pointer; white-space: nowrap; }
-    .pill.active { outline: 2px solid #34d399; }
-
-    /* Menu / Order items */
-    .item { display:flex; align-items:center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px dashed #243244; }
+    .item {
+      display:flex;
+      align-items:flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px dashed #243244;
+    }
     .item:last-child { border-bottom: 0; }
-    .meta { color:#9ca3af; font-size: 12px; margin-top: 2px; }
-    .desc { color:#cbd5e1; font-size: 12px; margin-top: 6px; line-height: 1.35; opacity: .9; }
-    .stepper { display:flex; align-items:center; gap: 10px; }
-    .qty { min-width: 26px; text-align:center; font-variant-numeric: tabular-nums; font-weight: 700; }
 
-    button { border: 1px solid #1f2937; background:#0b1220; color:#e5e7eb; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+    .meta { color:#9ca3af; font-size: 12px; margin-top: 2px; }
+    .desc { color:#9ca3af; font-size: 12px; margin-top: 6px; line-height: 1.35; }
+
+    .stepper { display:flex; align-items:center; gap: 10px; }
+    .qty { min-width: 26px; text-align:center; font-variant-numeric: tabular-nums; font-weight: 800; }
+
+    button {
+      border: 1px solid #1f2937;
+      background:#0b1220;
+      color:#e5e7eb;
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
     button.primary { background:#2563eb; border-color:#2563eb; }
     button.danger { background:#b91c1c; border-color:#b91c1c; }
-    button:disabled { opacity: .45; cursor: not-allowed; }
     .btnrow { display:flex; gap: 10px; flex-wrap: wrap; }
     .small { padding: 8px 10px; border-radius: 10px; }
 
-    /* DETAILS: убираем стандартный треугольник, делаем свой */
-    details > summary { list-style: none; }
-    details > summary::-webkit-details-marker { display:none; }
-    details > summary {
+    details.section > summary {
       cursor: pointer;
       font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      user-select: none;
+      list-style: none;
     }
-    details > summary::before {
-      content: "▶";
-      display: inline-block;
-      transform-origin: center;
-      transition: transform .15s ease;
-      opacity: .9;
-    }
-    details[open] > summary::before { transform: rotate(90deg); }
-
-    /* Чтобы sticky pillbar не налезал на header при разных высотах */
-    @media (max-width: 900px){
-      .pillbar { top: 136px; }
-      .subpillbar { top: 186px; }
-    }
+    details.section > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
 
 <body>
   <header>
-    <div class="row">
-      <div style="font-weight:900; font-size:20px;">Официант (офлайн)</div>
+    <div class="row" style="justify-content: space-between;">
+      <div style="font-weight:900; font-size:18px;">Официант (офлайн)</div>
       <div id="status" class="hint"></div>
     </div>
 
+    <!-- Столы -->
     <details class="card" id="tablesDetails" style="margin-top:10px;">
-      <summary id="tablesSummary">Столы</summary>
+      <summary id="tablesSummary">
+        <span class="tri" aria-hidden="true"></span>
+        <span>Столы</span>
+      </summary>
       <div class="tabs" id="tableTabs"></div>
     </details>
   </header>
 
+  <!-- Категории -->
   <div class="pillbar" id="categoryPills"></div>
-  <div class="subpillbar" id="subCategoryPills" style="display:none;"></div>
+
+  <!-- Подкатегории -->
+  <div class="pillbar" id="subCategoryPills" style="top: 170px;"></div>
 
   <main>
-    <input id="search" placeholder="Поиск блюда…" autocomplete="off" />
+    <input id="search" placeholder="Поиск…" autocomplete="off" />
 
     <div class="two">
       <section class="card">
@@ -121,74 +181,39 @@
           </div>
         </div>
         <div id="orderList"></div>
-        <div id="orderTotals" style="margin-top:10px;"></div>
+        <div class="hint" id="orderTotals" style="margin-top:10px;"></div>
       </section>
     </div>
 
-    <details class="card" style="margin-top:12px;">
+    <details class="card section">
       <summary>История закрытий</summary>
-
-      <div class="btnrow" style="margin-top:10px;">
+      <div style="display:flex; gap:8px; margin:10px 0;">
         <button id="exportHistory" class="small">Экспорт</button>
         <button id="clearHistory" class="danger small">Очистить историю</button>
       </div>
-
-      <div id="historyList" class="list" style="margin-top:10px;"></div>
+      <div id="historyList"></div>
     </details>
 
-    <!-- Редактирование меню (потом можно удалить целиком) -->
-    <details class="card">
-      <summary>Редактировать меню</summary>
+    <!-- Временно (если нужно быстро импортировать список из текста). Потом можно удалить целиком. -->
+    <details class="card section" id="adminBlock">
+      <summary>Импорт меню</summary>
       <div class="hint" style="margin-top:10px;">
-        Добавляй блюда и категории. Всё сохраняется офлайн на устройстве.
+        Формат:
+        <br>Категория: <b>Напитки:</b>
+        <br>Подкатегория: <b>Подкатегория = Кофе</b>
+        <br>Позиция: <b>Эспрессо | 30мл | описание... | 5р</b>
       </div>
 
-      <div style="display:grid; gap:10px; margin-top:10px;">
-        <input id="newName" placeholder="Название (например, Борщ)" />
-        <input id="newCat" placeholder="Категория (например, Алкоголь)" />
-        <input id="newSub" placeholder="Подкатегория (например, Ром) — можно пусто" />
-        <input id="newPrice" placeholder="Цена (например, 350)" inputmode="numeric" />
-        <input id="newGram" placeholder="Граммовка (например, 300 мл / 180 г) — можно пусто" />
-        <input id="newDesc" placeholder="Описание (например, нежный сливочный вкус) — можно пусто" />
-
-        <div class="btnrow">
-          <button class="primary" id="addItem">Добавить</button>
-          <button id="resetMenu">Сбросить меню на стандартное</button>
-        </div>
-
-        <textarea id="bulkMenuText" placeholder="Импорт меню текстом (пример):
-Напитки:
-[Смузи]
-Манго-маракуйя 350 300мл | нежный, густой
-[Лимонады]
-Классический 250 400мл
-
-Алкоголь:
-[Ром]
-Bacardi 300 50мл
-" style="min-height:180px;"></textarea>
-
-        <div class="btnrow">
-          <button class="primary" id="importMenu">Импортировать</button>
-          <button class="danger" id="importReplace">Импорт с заменой</button>
-        </div>
-
-        <div class="hint">
-          Категория: строка с двоеточием (<b>Напитки:</b>)<br/>
-          Подкатегория: строка в скобках (<b>[Смузи]</b>)<br/>
-          Позиция: <b>Название цена граммовка | описание</b><br/>
-          Пример: <b>Манго 350 300мл | вкусно</b> (граммовка/описание можно не писать)
-        </div>
+      <textarea id="bulkMenuText" placeholder="Вставь меню текстом..."></textarea>
+      <div class="btnrow" style="margin-top:10px;">
+        <button class="primary" id="importReplace">Импорт с заменой</button>
+        <button class="danger" id="resetAll">Сбросить всё</button>
       </div>
-
-      <div id="menuAdminList" style="margin-top:10px;"></div>
     </details>
 
-    <div class="hint">
-      Разработано лично для моей Каринки остальные сасите.
-    </div>
+    <div class="hint">Разработано лично для моей Каринки.</div>
   </main>
 
-  <script src="./app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
