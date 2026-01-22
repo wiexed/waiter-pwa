@@ -9,15 +9,61 @@ const LS_CAT = "waiter_active_cat_v1";
 const LS_HISTORY = "waiter_history_v1";
 
 const DEFAULT_MENU = [
-  { id: uuid(), name: "Цезарь", category: "Салаты", price: 350 },
-  { id: uuid(), name: "Греческий", category: "Салаты", price: 300 },
-  { id: uuid(), name: "Борщ", category: "Супы", price: 250 },
-  { id: uuid(), name: "Том Ям", category: "Супы", price: 450 },
-  { id: uuid(), name: "Карбонара", category: "Горячее", price: 420 },
-  { id: uuid(), name: "Стейк", category: "Горячее", price: 900 },
-  { id: uuid(), name: "Эспрессо", category: "Напитки", price: 180 },
-  { id: uuid(), name: "Капучино", category: "Напитки", price: 220 }
+  // Закуски
+  { id: uuid(), name: "—", category: "Закуски", price: 0 },
+
+  // Напитки
+  { id: uuid(), name: "—", category: "Напитки и соки", price: 0 },
+  { id: uuid(), name: "—", category: "Смузи", price: 0 },
+  { id: uuid(), name: "—", category: "Лимонады", price: 0 },
+  { id: uuid(), name: "—", category: "Милкшейки", price: 0 },
+
+  // Десерты
+  { id: uuid(), name: "—", category: "Десерты", price: 0 },
+
+  // Коктейли
+  { id: uuid(), name: "—", category: "Коктейли авторские и твист", price: 0 },
+  { id: uuid(), name: "—", category: "Безалкогольные коктейли", price: 0 },
+  { id: uuid(), name: "—", category: "Коктейли классические", price: 0 },
+  { id: uuid(), name: "—", category: "Микс дринк", price: 0 },
+  { id: uuid(), name: "—", category: "Горячие коктейли", price: 0 },
+
+  // Алкоголь
+  { id: uuid(), name: "—", category: "Фирменные наливки", price: 0 },
+  { id: uuid(), name: "—", category: "Шоты", price: 0 },
+  { id: uuid(), name: "—", category: "Сеты шотов", price: 0 },
+  { id: uuid(), name: "—", category: "Пиво", price: 0 },
+  { id: uuid(), name: "—", category: "К пиву", price: 0 },
+
+  // Крепкий алкоголь
+  { id: uuid(), name: "—", category: "Шотландские виски", price: 0 },
+  { id: uuid(), name: "—", category: "Ирландские виски", price: 0 },
+  { id: uuid(), name: "—", category: "Американские виски", price: 0 },
+  { id: uuid(), name: "—", category: "Ром", price: 0 },
+  { id: uuid(), name: "—", category: "Водка", price: 0 },
+  { id: uuid(), name: "—", category: "Текила / джин", price: 0 },
+  { id: uuid(), name: "—", category: "Ликеры", price: 0 },
+  { id: uuid(), name: "—", category: "Коньяк", price: 0 },
+  { id: uuid(), name: "—", category: "Вермуты", price: 0 },
+
+  // Вино
+  { id: uuid(), name: "—", category: "Домашние вина", price: 0 },
+  { id: uuid(), name: "—", category: "Белые вина", price: 0 },
+  { id: uuid(), name: "—", category: "Красные вина", price: 0 },
+  { id: uuid(), name: "—", category: "Розовое вино", price: 0 },
+  { id: uuid(), name: "—", category: "Игристое вино", price: 0 },
+
+  // Чай / кофе
+  { id: uuid(), name: "—", category: "Листовой чай", price: 0 },
+  { id: uuid(), name: "—", category: "Чайные напитки", price: 0 },
+  { id: uuid(), name: "—", category: "Бабл-напитки", price: 0 },
+  { id: uuid(), name: "—", category: "Кофе", price: 0 },
+  { id: uuid(), name: "—", category: "Кофейные напитки", price: 0 },
+
+  // Прочее
+  { id: uuid(), name: "—", category: "Бутылочка с собой", price: 0 }
 ];
+
 
 
 function loadMenu() {
@@ -279,6 +325,7 @@ function adjustQty(menuId, delta) {
 
 function filteredMenu() {
   return menu
+    .filter(m => m.name !== "—") // ⬅ скрываем пустышки
     .filter(m => activeCat === "Все" ? true : m.category === activeCat)
     .filter(m => !searchText ? true : m.name.toLowerCase().includes(searchText.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name,'ru'));
@@ -666,4 +713,5 @@ function escapeHtml(s){
 }
 
 renderAll();
+
 
